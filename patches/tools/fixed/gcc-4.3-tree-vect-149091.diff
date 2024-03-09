@@ -1,0 +1,18 @@
+--- branches/gcc-4_3-branch/gcc/tree-vect-analyze.c	2009/06/30 11:33:27	149090
++++ branches/gcc-4_3-branch/gcc/tree-vect-analyze.c	2009/06/30 11:48:51	149091
+@@ -173,6 +173,15 @@
+ 	      print_generic_expr (vect_dump, stmt, TDF_SLIM);
+ 	    }
+ 
++          if (stmt_ann (stmt)->has_volatile_ops)
++            {
++              if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
++                fprintf (vect_dump, "not vectorized: stmt has volatile"
++                                    " operands");
++
++              return false;
++            }
++
+ 	  gcc_assert (stmt_info);
+ 
+ 	  /* skip stmts which do not need to be vectorized.  */

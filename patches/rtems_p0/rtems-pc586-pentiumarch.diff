@@ -1,0 +1,26 @@
+ - set '-march=pentium' to allow the compiler to actually
+   use > i386 instructions (e.g., bswap).
+Index: make/custom/pc586.cfg
+===================================================================
+RCS file: /usr1/CVS/rtems/make/custom/pc586.cfg,v
+retrieving revision 1.6
+diff -c -r1.6 pc586.cfg
+*** c/src/lib/libbsp/i386/pc386/make/custom/pc586.cfg	18 Jan 2007 08:28:54 -0000	1.6
+--- c/src/lib/libbsp/i386/pc386/make/custom/pc586.cfg	17 Aug 2009 15:14:59 -0000
+***************
+*** 8,14 ****
+  
+  #  This contains the compiler options necessary to select the CPU model
+  #  and (hopefully) optimize for it.
+! CPU_CFLAGS = -mtune=pentium
+  
+  include $(RTEMS_ROOT)/make/custom/pc386.cfg
+  
+--- 8,14 ----
+  
+  #  This contains the compiler options necessary to select the CPU model
+  #  and (hopefully) optimize for it.
+! CPU_CFLAGS = -march=pentium
+  
+  include $(RTEMS_ROOT)/make/custom/pc386.cfg
+  

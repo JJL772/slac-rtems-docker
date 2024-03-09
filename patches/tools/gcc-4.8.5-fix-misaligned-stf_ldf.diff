@@ -1,0 +1,82 @@
+*** gcc-4.8.5/gcc/builtins.c.orig	2019-08-30 15:35:16.337667369 -0700
+--- gcc-4.8.5/gcc/builtins.c	2019-08-30 15:40:52.521385256 -0700
+***************
+*** 49,54 ****
+--- 49,57 ----
+  #include "diagnostic-core.h"
+  #include "builtins.h"
+  
++ #ifndef PPC_IS_MISALIGNED_HACK
++ #define PPC_IS_MISALIGNED_HACK( align ) (0)
++ #endif
+  
+  #ifndef PAD_VARARGS_DOWN
+  #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
+***************
+*** 9019,9025 ****
+  	      || src_align >= TYPE_ALIGN (desttype))
+  	    srcvar = fold_build2 (MEM_REF, destvar ? desttype : srctype,
+  				  srcvar, off0);
+! 	  else if (!STRICT_ALIGNMENT)
+  	    {
+  	      srctype = build_aligned_type (TYPE_MAIN_VARIANT (desttype),
+  					    src_align);
+--- 9022,9028 ----
+  	      || src_align >= TYPE_ALIGN (desttype))
+  	    srcvar = fold_build2 (MEM_REF, destvar ? desttype : srctype,
+  				  srcvar, off0);
+! 	  else if (!STRICT_ALIGNMENT && !PPC_IS_MISALIGNED_HACK( src_align ))
+  	    {
+  	      srctype = build_aligned_type (TYPE_MAIN_VARIANT (desttype),
+  					    src_align);
+***************
+*** 9041,9047 ****
+  	    srcvar = fold_build2 (MEM_REF, desttype, src, off0);
+  	  else
+  	    {
+! 	      if (STRICT_ALIGNMENT)
+  		return NULL_TREE;
+  	      srctype = build_aligned_type (TYPE_MAIN_VARIANT (desttype),
+  					    src_align);
+--- 9044,9050 ----
+  	    srcvar = fold_build2 (MEM_REF, desttype, src, off0);
+  	  else
+  	    {
+! 	      if (STRICT_ALIGNMENT || PPC_IS_MISALIGNED_HACK( src_align ))
+  		return NULL_TREE;
+  	      srctype = build_aligned_type (TYPE_MAIN_VARIANT (desttype),
+  					    src_align);
+***************
+*** 9055,9061 ****
+  	    destvar = fold_build2 (MEM_REF, srctype, dest, off0);
+  	  else
+  	    {
+! 	      if (STRICT_ALIGNMENT)
+  		return NULL_TREE;
+  	      desttype = build_aligned_type (TYPE_MAIN_VARIANT (srctype),
+  					     dest_align);
+--- 9058,9064 ----
+  	    destvar = fold_build2 (MEM_REF, srctype, dest, off0);
+  	  else
+  	    {
+! 	      if (STRICT_ALIGNMENT || PPC_IS_MISALIGNED_HACK( dest_align ) )
+  		return NULL_TREE;
+  	      desttype = build_aligned_type (TYPE_MAIN_VARIANT (srctype),
+  					     dest_align);
+*** gcc-4.8.5/gcc/config/rs6000/rtems.h.orig	2019-08-30 14:11:22.081583500 -0700
+--- gcc-4.8.5/gcc/config/rs6000/rtems.h	2019-08-30 15:42:35.331114258 -0700
+***************
+*** 57,59 ****
+--- 57,68 ----
+  #undef  SUBSUBTARGET_EXTRA_SPECS
+  #define SUBSUBTARGET_EXTRA_SPECS \
+    { "cpp_os_rtems",		CPP_OS_RTEMS_SPEC }
++ 
++ /* Gcc builtin memcpy uses stfd/lfd to access misaligned memory.
++  * -mstrict-align fixes this but produces byte-by-byte copies
++  * where word-access would be OK.
++  * Unfortunately this is not trivial to fix at the machine-description
++  * level but the following hack should work around the problem (at least this
++  * particular case of memcpy(char*,double*))
++  */
++ #define PPC_IS_MISALIGNED_HACK( align ) ( (align) < 32 )

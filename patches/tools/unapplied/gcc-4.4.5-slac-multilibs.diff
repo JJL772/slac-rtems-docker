@@ -1,0 +1,79 @@
+*** gcc-4.4.5/gcc/config/i386/t-rtems-i386.orig	2011-03-29 18:30:17.000000000 -0700
+--- gcc-4.4.5/gcc/config/i386/t-rtems-i386	2011-03-29 18:31:52.000000000 -0700
+***************
+*** 36,49 ****
+  	echo '#define EXTENDED_FLOAT_STUBS' > xp-bit.c
+  	cat $(srcdir)/config/fp-bit.c >> xp-bit.c
+  
+! MULTILIB_OPTIONS = mtune=i486/mtune=pentium/mtune=pentiumpro \
+! msoft-float
+! MULTILIB_DIRNAMES= m486 mpentium mpentiumpro soft-float
+  MULTILIB_MATCHES = msoft-float=mno-m80387
+  MULTILIB_MATCHES += mtune?pentium=mtune?k6 mtune?pentiumpro=mtune?mathlon
+  MULTILIB_EXCEPTIONS = \
+  mtune=pentium/*msoft-float* \
+! mtune=pentiumpro/*msoft-float*
+  
+  EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o
+  
+--- 36,52 ----
+  	echo '#define EXTENDED_FLOAT_STUBS' > xp-bit.c
+  	cat $(srcdir)/config/fp-bit.c >> xp-bit.c
+  
+! MULTILIB_OPTIONS = march=pentium \
+! msoft-float msse2
+! MULTILIB_DIRNAMES= mpentium soft-float sse2
+  MULTILIB_MATCHES = msoft-float=mno-m80387
+  MULTILIB_MATCHES += mtune?pentium=mtune?k6 mtune?pentiumpro=mtune?mathlon
+  MULTILIB_EXCEPTIONS = \
+  mtune=pentium/*msoft-float* \
+! mtune=pentiumpro/*msoft-float* \
+! march=pentium/*msoft-float* \
+! *msoft-float*/*msse2* \
+! msse2
+  
+  EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o
+  
+*** gcc-4.4.5/gcc/config/rs6000/t-rtems.orig	2011-03-29 18:34:16.000000000 -0700
+--- gcc-4.4.5/gcc/config/rs6000/t-rtems	2011-03-29 18:44:39.000000000 -0700
+***************
+*** 19,29 ****
+  # <http://www.gnu.org/licenses/>.
+  
+  MULTILIB_OPTIONS	= \
+! mcpu=403/mcpu=505/mcpu=601/mcpu=603e/mcpu=604/mcpu=860/mcpu=7400/mcpu=8540 \
+  msoft-float
+  
+  MULTILIB_DIRNAMES	= \
+! m403 m505 m601 m603e m604 m860 m7400 m8540 \
+  nof
+  
+  # MULTILIB_MATCHES	= ${MULTILIB_MATCHES_FLOAT}
+--- 19,29 ----
+  # <http://www.gnu.org/licenses/>.
+  
+  MULTILIB_OPTIONS	= \
+! mcpu=403/mcpu=603e/mcpu=604/mcpu=860/mcpu=7400/mcpu=8540 \
+  msoft-float
+  
+  MULTILIB_DIRNAMES	= \
+! m403 m603e m604 m860 m7400 m8540 \
+  nof
+  
+  # MULTILIB_MATCHES	= ${MULTILIB_MATCHES_FLOAT}
+*** gcc-4.4.5/gcc/config/m68k/t-rtems.orig	2011-03-29 18:32:50.000000000 -0700
+--- gcc-4.4.5/gcc/config/m68k/t-rtems	2011-03-29 18:33:35.000000000 -0700
+***************
+*** 1,9 ****
+  # Custom multilibs for RTEMS
+! M68K_MLIB_CPU += && (match(MLIB, "^68") \
+! 		     || MLIB == "cpu32" \
+! 		     || MLIB == "5206" \
+! 		     || MLIB == "5208" \
+! 		     || MLIB == "5307" \
+! 		     || MLIB == "5329" \
+! 		     || MLIB == "5407" \
+! 		     || MLIB == "5475")
+--- 1,2 ----
+  # Custom multilibs for RTEMS
+! M68K_MLIB_CPU += && ( MLIB == "68020" || MLIB == "5208" )

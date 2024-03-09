@@ -1,0 +1,19 @@
+*** newlib-1.16.0/newlib/configure.host.orig	2009-10-01 20:53:10.000000000 -0700
+--- newlib-1.16.0/newlib/configure.host	2009-10-01 20:53:35.000000000 -0700
+***************
+*** 529,535 ****
+    *-*-rtems*)
+  	default_newlib_io_long_long="yes"
+  	default_newlib_io_c99_formats="yes"
+! 	newlib_cflags="${newlib_cflags} -DMALLOC_PROVIDED -DEXIT_PROVIDED -DMISSING_SYSCALL_NAMES -DSIGNAL_PROVIDED -DREENTRANT_SYSCALLS_PROVIDED -DHAVE_OPENDIR -DNO_EXEC -DHAVE_FCNTL"
+  	;;
+  # VxWorks supplies its own version of malloc, and the newlib one
+  # doesn't work because VxWorks does not have sbrk.
+--- 529,535 ----
+    *-*-rtems*)
+  	default_newlib_io_long_long="yes"
+  	default_newlib_io_c99_formats="yes"
+! 	newlib_cflags="${newlib_cflags} -DMALLOC_PROVIDED -DEXIT_PROVIDED -DMISSING_SYSCALL_NAMES -DSIGNAL_PROVIDED -DREENTRANT_SYSCALLS_PROVIDED -DHAVE_OPENDIR -DNO_EXEC -DHAVE_BLKSIZE -DHAVE_FCNTL"
+  	;;
+  # VxWorks supplies its own version of malloc, and the newlib one
+  # doesn't work because VxWorks does not have sbrk.

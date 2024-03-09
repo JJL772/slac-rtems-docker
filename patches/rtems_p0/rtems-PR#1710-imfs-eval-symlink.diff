@@ -1,0 +1,27 @@
+Index: cpukit/libfs/src/imfs/imfs_eval.c
+===================================================================
+RCS file: /usr1/CVS/rtems/cpukit/libfs/src/imfs/imfs_eval.c,v
+retrieving revision 1.26.2.3
+diff -c -r1.26.2.3 imfs_eval.c
+*** cpukit/libfs/src/imfs/imfs_eval.c	17 May 2011 04:45:52 -0000	1.26.2.3
+--- cpukit/libfs/src/imfs/imfs_eval.c	26 Jul 2011 21:56:35 -0000
+***************
+*** 209,214 ****
+--- 209,215 ----
+      node
+    );
+  
++ #if 0
+    IMFS_Set_handlers( node );
+  
+    /*
+***************
+*** 217,222 ****
+--- 218,224 ----
+  
+    if ( !IMFS_evaluate_permission( node, flags ) )
+      rtems_set_errno_and_return_minus_one( EACCES );
++ #endif
+  
+    return result;
+  }

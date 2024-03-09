@@ -1,0 +1,42 @@
+Index: c/src/lib/libbsp/powerpc/psim/startup/linkcmds
+===================================================================
+RCS file: /usr1/CVS/rtems/c/src/lib/libbsp/powerpc/psim/startup/linkcmds,v
+retrieving revision 1.29
+diff -c -r1.29 linkcmds
+*** c/src/lib/libbsp/powerpc/psim/startup/linkcmds	5 Sep 2008 14:42:59 -0000	1.29
+--- c/src/lib/libbsp/powerpc/psim/startup/linkcmds	6 Oct 2008 19:52:41 -0000
+***************
+*** 17,23 ****
+  PROVIDE (PSIM_INSTRUCTIONS_PER_MICROSECOND = 10000);
+  MEMORY
+    {
+!         RAM       : ORIGIN = 0, LENGTH = 8M
+  	PSIM_REGS : ORIGIN = 0x0c000000, LENGTH = 16M
+          VECTORS   : ORIGIN = 0xFFF00000, LENGTH = 0x20000
+    }
+--- 17,24 ----
+  PROVIDE (PSIM_INSTRUCTIONS_PER_MICROSECOND = 10000);
+  MEMORY
+    {
+! 		/* dbat set up to map 16M only */
+!         RAM       : ORIGIN = 0, LENGTH = 16M
+  	PSIM_REGS : ORIGIN = 0x0c000000, LENGTH = 16M
+          VECTORS   : ORIGIN = 0xFFF00000, LENGTH = 0x20000
+    }
+***************
+*** 200,206 ****
+    _edata  =  .;
+    PROVIDE (edata = .);
+  
+!   PROVIDE (RAM_END = 0x7f0000);
+    .sbss      :
+    {
+      PROVIDE (__sbss_start = .);
+--- 201,207 ----
+    _edata  =  .;
+    PROVIDE (edata = .);
+  
+!   PROVIDE (RAM_END = 0xff0000);
+    .sbss      :
+    {
+      PROVIDE (__sbss_start = .);

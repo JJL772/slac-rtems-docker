@@ -1,0 +1,219 @@
+ This patch adds the following features to the pcx86 BSP (used for
+ running RTEMS on Concurrent Tech. PP41x):
+  - use multiboot info for saving commandline
+  - provide storage space for command line and BSP_commandline_string variable
+    consistent with PPC and other BSPs.
+  - work around a problem with the intel 6300ESP chipset UART.
+  - use PP41x bcsr0 to determine what UART the console is attached to
+    (requires cmdline string to give a hint that we are running on a
+	PP41x board.
+
+  T.S, 7/2007
+
+*** c/src/lib/libbsp/i386/pc386/console/console.c.~1~	2008-09-04 23:36:46.578995630 -0700
+--- c/src/lib/libbsp/i386/pc386/console/console.c	2008-09-30 17:55:01.481133311 -0700
+***************
+*** 138,143 ****
+--- 138,151 ----
+    return -1;
+  }
+  
++ /* provide default that does nothing */
++ extern void
++ BSP_runtime_console_select(int *, int *) __attribute__((weak, alias("BSP_noop_console_select")));
++ 
++ void
++ BSP_noop_console_select(int *pPrintkPort, int *pConsolePort) { }
++ 
++ 
+  /*-------------------------------------------------------------------------+
+  | Console device driver INITIALIZE entry point.
+  +--------------------------------------------------------------------------+
+***************
+*** 158,163 ****
+--- 166,173 ----
+     */
+    rtems_termios_initialize ();
+  
++   BSP_runtime_console_select(&BSPPrintkPort, &BSPConsolePort);
++ 
+  #ifdef RTEMS_RUNTIME_CONSOLE_SELECT
+    /*
+     * If no video card, fall back to serial port console
+*** c/src/lib/libbsp/i386/pc386/include/bsp.h.~1~	2007-12-11 07:49:51.685994894 -0800
+--- c/src/lib/libbsp/i386/pc386/include/bsp.h	2008-09-30 17:55:01.499133187 -0700
+***************
+*** 68,73 ****
+--- 68,84 ----
+  
+  struct rtems_bsdnet_ifconfig;
+  
++ /* command line string (optionally passed in from multiboot info) */
++ extern char *BSP_commandline_string;
++ 
++ /* app. may provide a routine (called _very_ early) to tell us
++  * which ports to use for printk / console. BSP provides a default
++  * implementation (weak alias) which does nothing (use BSP default
++  * ports).
++  */
++ extern void
++ BSP_runtime_console_select(int *pPrintkPort, int *pConsolePort);
++ 
+  extern int rtems_ne_driver_attach(struct rtems_bsdnet_ifconfig *, int);
+  #define BSP_NE2000_NETWORK_DRIVER_NAME      "ne1"
+  #define BSP_NE2000_NETWORK_DRIVER_ATTACH    rtems_ne_driver_attach
+*** c/src/lib/libbsp/i386/pc386/start/start.S.~1~	2008-03-22 07:01:49.680994928 -0700
+--- c/src/lib/libbsp/i386/pc386/start/start.S	2008-09-30 17:55:01.509133118 -0700
+***************
+*** 97,106 ****
+  		movl	ebx, esi
+  		movl	$SYM(_boot_multiboot_info), edi
+  		movsd
+! 		/* only save flag 1 since that's the only data we save */
+! 		and		$1,-4(edi)
+  		je		1f
+! 		movl	$2,ecx
+  		rep movsd
+  1:
+  #ifdef DEBUG_EARLY_START
+--- 97,106 ----
+  		movl	ebx, esi
+  		movl	$SYM(_boot_multiboot_info), edi
+  		movsd
+! 		/* only save flags 1+4 since that's the only data we save */
+! 		and		$5,-4(edi)
+  		je		1f
+! 		movl	$4,ecx
+  		rep movsd
+  1:
+  #ifdef DEBUG_EARLY_START
+***************
+*** 203,208 ****
+--- 203,210 ----
+  	.long 0	/* flags */
+  	.long 0 /* mem_lower */
+  	.long 0 /* mem_upper */
++ 	.long 0 /* boot_device [unused; flag is cleared] */
++ 	.long 0 /* command line ptr; actual data still must be saved ASAP */
+  
+  	PUBLIC(_stack_size)
+  SYM(_stack_size):
+*** c/src/lib/libbsp/i386/pc386/startup/bspstart.c.~1~	2008-08-19 12:34:08.608995423 -0700
+--- c/src/lib/libbsp/i386/pc386/startup/bspstart.c	2008-09-30 17:58:18.611778953 -0700
+***************
+*** 35,40 ****
+--- 35,43 ----
+  #include <rtems/libcsupport.h>
+  #include <rtems/pci.h>
+  #include <libcpu/cpuModel.h>
++ #include <uart.h>
++ 
++ #include <string.h>
+  
+  /*-------------------------------------------------------------------------+
+  | Global Variables
+***************
+*** 46,54 ****
+--- 49,64 ----
+  	uint32_t	flags;		/* start.S only raises flags for items actually saved; this allows us to check for the size of the data structure */
+  	uint32_t	mem_lower;	/* avail kB in lower memory */
+  	uint32_t	mem_upper;	/* avail kB in lower memory */
++ 	uint32_t    boot_device;/* unused flag cleared in start.S */
++ 	uint8_t    *cmdline;
+  	/* ... (unimplemented) */
+  };
+  
++ #define CMDLINE_BUF_SIZE	2048
++ 
++ static char cmdline_buf[CMDLINE_BUF_SIZE] = { 0 };
++ char *BSP_commandline_string = cmdline_buf;
++ 
+  extern struct multiboot_info _boot_multiboot_info;
+  /*
+   * Size of heap if it is 0 it will be dynamically defined by memory size,
+***************
+*** 109,114 ****
+--- 119,155 ----
+      bsp_mem_size = _boot_multiboot_info.mem_upper * 1024;
+    }
+  
++   /* save commandline */
++   if ( _boot_multiboot_info.cmdline ) {
++     strncpy(cmdline_buf, _boot_multiboot_info.cmdline, CMDLINE_BUF_SIZE - 1);
++   }
++ 
++   /* set console port on Concurrent Technologies PP 41x/03x boards */
++   if ( strstr(cmdline_buf, "=PP41x") ) {
++ 	  /* read switch settings */
++ 	  uint8_t bcsr0;
++ 	  extern int BSPPrintkPort;
++ 	  extern int BSPConsolePort;
++ 	  i386_inport_byte(0x210, bcsr0);
++ 	  if ( bcsr0 & 4 ) {
++ 		  /* VGA console */
++ 		  BSPConsolePort = BSP_CONSOLE_PORT_CONSOLE;
++ 		  BSPPrintkPort  = BSP_CONSOLE_PORT_CONSOLE;
++ 	  } else {
++ 		  if ( bcsr0 & 8 ) {
++ 			  BSPConsolePort = BSP_CONSOLE_PORT_COM2;
++ 			  /* Cannot use COM2 for printk; use VGA
++ 			   * which is always on - question is if there is a
++ 			   * CRT connected...
++ 			   */
++ 			  BSPPrintkPort  = BSP_CONSOLE_PORT_CONSOLE;
++ 		  } else {
++ 			  BSPConsolePort = BSP_CONSOLE_PORT_COM1;
++ 			  BSPPrintkPort  = BSP_CONSOLE_PORT_COM1;
++ 		  }
++ 	  }
++   }
++ 
+    if ( _heap_size == 0 ) {
+      if ( bsp_mem_size == 0 ) {
+          /*
+*** c/src/lib/libbsp/i386/shared/comm/uart.c.~1~	2005-05-06 12:55:45.694994832 -0700
+--- c/src/lib/libbsp/i386/shared/comm/uart.c	2008-09-30 17:55:01.541132899 -0700
+***************
+*** 720,726 ****
+            else {
+  	    /* RX data ready */
+  	    assert(off < sizeof(buf));
+! 	    buf[off++] = uread(BSP_UART_COM1, RBR);
+            }
+  	  break;
+  	case RECEIVER_ERROR:
+--- 720,731 ----
+            else {
+  	    /* RX data ready */
+  	    assert(off < sizeof(buf));
+! 		/* intel 6300ESP doesn't seem to re-generate a timeout IRQ if we
+! 		 * read from the fifo and the timeout IRQ is already asserted.
+! 		 * Anyways, it seems better to read as much as we can right here
+! 		 */
+! 		while ( off < sizeof(buf) && ( DR & uread(BSP_UART_COM1, LSR) ) )
+! 	    	buf[off++] = uread(BSP_UART_COM1, RBR);
+            }
+  	  break;
+  	case RECEIVER_ERROR:
+***************
+*** 815,821 ****
+            else {
+  	    /* RX data ready */
+  	    assert(off < sizeof(buf));
+! 	    buf[off++] = uread(BSP_UART_COM2, RBR);
+            }
+  	  break;
+  	case RECEIVER_ERROR:
+--- 820,831 ----
+            else {
+  	    /* RX data ready */
+  	    assert(off < sizeof(buf));
+!         /* intel 6300ESP doesn't seem to re-generate a timeout IRQ if we
+! 		 * read from the fifo and the timeout IRQ is already asserted.
+! 		 * Anyways, it seems better to read as much as we can right here
+! 		 */
+! 		while ( off < sizeof(buf) && ( DR & uread(BSP_UART_COM2, LSR) ) )
+! 	    	buf[off++] = uread(BSP_UART_COM2, RBR);
+            }
+  	  break;
+  	case RECEIVER_ERROR:

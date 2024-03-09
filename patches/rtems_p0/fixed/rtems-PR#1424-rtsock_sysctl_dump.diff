@@ -1,0 +1,24 @@
+Index: cpukit/libnetworking/net/rtsock.c
+===================================================================
+RCS file: /usr1/CVS/rtems/cpukit/libnetworking/net/rtsock.c,v
+retrieving revision 1.10
+diff -c -r1.10 rtsock.c
+*** cpukit/libnetworking/net/rtsock.c	1 Sep 2008 04:56:33 -0000	1.10
+--- cpukit/libnetworking/net/rtsock.c	5 Jun 2009 04:31:43 -0000
+***************
+*** 670,676 ****
+  		rtm->rtm_index = rt->rt_ifp->if_index;
+  		rtm->rtm_errno = rtm->rtm_pid = rtm->rtm_seq = 0;
+  		rtm->rtm_addrs = info.rti_addrs;
+! 		error = 0;
+  		return (error);
+  	}
+  	return (error);
+--- 670,676 ----
+  		rtm->rtm_index = rt->rt_ifp->if_index;
+  		rtm->rtm_errno = rtm->rtm_pid = rtm->rtm_seq = 0;
+  		rtm->rtm_addrs = info.rti_addrs;
+! 		error = SYSCTL_OUT(w->w_req, (caddr_t)rtm, size);
+  		return (error);
+  	}
+  	return (error);

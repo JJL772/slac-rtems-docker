@@ -1,0 +1,52 @@
+*** gcc-4.4.4/gcc/config/rs6000/rtems.h.orig	2010-06-25 15:49:06.985297459 -0500
+--- gcc-4.4.4/gcc/config/rs6000/rtems.h	2010-06-25 15:52:34.665350141 -0500
+***************
+*** 63,70 ****
+        {						\
+  	rs6000_float_gprs = 1;			\
+        }						\
+    } while(0)
+! 
+  #undef WCHAR_TYPE
+  
+  #undef WCHAR_TYPE_SIZE
+--- 63,101 ----
+        {						\
+  	rs6000_float_gprs = 1;			\
+        }						\
++       /* Disable VRSAVE for AltiVec ABI, unless explicitly overridden.  */ \
++       if (!rs6000_explicit_options.vrsave) \
++ 	TARGET_ALTIVEC_VRSAVE = 0; \
+    } while(0)
+!   
+  #undef WCHAR_TYPE
+  
+  #undef WCHAR_TYPE_SIZE
++ 
++ /* PROCESSOR_DEFAULT is what gcc 'tunes' to; default for -mtune */
++ #undef	PROCESSOR_DEFAULT
++ #define	PROCESSOR_DEFAULT PROCESSOR_POWERPC
++ 
++ /* TARGET_CPU_DEFAULT is the default -mcpu (a subset of POWERPC_BASE if
++  * undefined [ = "common"]; currently it IS undefined by default.
++  * powerpc should be OK, though.
++  */
++ #undef TARGET_CPU_DEFAULT
++ #define TARGET_CPU_DEFAULT "powerpc"
++ 
++ /* NEVER use lwsync (would not execute on psim and e500; no
++  * benefit on motorola 32-bit ppc since these don't implement
++  * lwsync)
++  */
++ #undef  TARGET_NO_LWSYNC
++ /* FIXME: we should test for rs6000_cpu (as it is done by
++  * eabi.h) but we'd like to invert the test. Rather than
++  * using lwsync by default we want to NOT use it by default.
++  * AFAIK, there is no RTEMS BSP that uses a CPU that actually
++  * implements lwsync.
++  */
++ #define TARGET_NO_LWSYNC 1
++ 
++ /* remove -meabi again from defaults */
++ #undef TARGET_DEFAULT
++ #define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)

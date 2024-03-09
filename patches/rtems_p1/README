@@ -1,0 +1,5 @@
+applied patch over a copy of rtems_p0
+
+-> any failures of Makefile.in, configure can be ignored since
+   we run 'bootstrap' after patching
+-> cpukit/aclocal/version.m4 is hand-tuned to say 4.10.1-slac_p1

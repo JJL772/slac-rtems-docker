@@ -1,0 +1,19 @@
+ - unpack all tarballs
+
+ - chdir gcc-4.4.5 and 
+     ln -s ../newlib-<version>/newlib newlib
+     ln -s ../mpfr-<version>          mpfr
+     ln -s ../gmp-<version>           gmp
+
+ - all patches are applied with
+
+    patch -p0 -b -Vt < <patch-file>
+
+   trying --dry-run first.
+
+****************************************************************************
+NOTES: the gcc-core patch must be applied FIRST.
+ 
+       the rtems 'slac-version' patch must be applied *before* bootstrapping.
+****************************************************************************
+ 

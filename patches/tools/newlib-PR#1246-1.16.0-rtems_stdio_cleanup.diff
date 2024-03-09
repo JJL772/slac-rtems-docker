@@ -1,0 +1,146 @@
+ - This patch addresses rtems PR#1246 (plug memory leak when thread is deleted)
+   the patch prevents the reent 'cleanup' function from performing I/O since
+   __reclaim_reent() is called at a point where the thread is already quite dead.
+   __reclaim_reent() should only reclaim memory and not do any I/O operations.
+
+ - Patch affects only RTEMS (by means of #ifdef)
+ - NOTE: companion patch 'rtems-newlibc-1.14.0-reclaim_reent.diff'
+         for RTEMS is necessary (cpukit/libcsupport/src/newlib.c)
+*** newlib-1.16.0/newlib/libc/include/sys/config.h.orig	2007-03-15 13:32:12.140709509 -0800
+--- newlib-1.16.0/newlib/libc/include/sys/config.h	2008-03-07 15:44:23.690883175 -0800
+***************
+*** 183,188 ****
+--- 183,189 ----
+  #if defined(__rtems__)
+  #define __FILENAME_MAX__ 255
+  #define _READ_WRITE_RETURN_TYPE _ssize_t
++ #define _STDIO_CLEANUP_NO_IO_SYSCALLS
+  #endif
+  
+  #ifndef __IMPORT
+*** newlib-1.16.0/newlib/libc/stdio/fclose.c.orig	2008-03-07 15:44:10.475987525 -0800
+--- newlib-1.16.0/newlib/libc/stdio/fclose.c	2008-03-07 15:45:31.653347238 -0800
+***************
+*** 64,69 ****
+--- 64,89 ----
+  #include <sys/lock.h>
+  #include "local.h"
+  
++ static void
++ _DEFUN(_do_reclaim_fp, (rptr, fp, is_locked),
++       struct _reent *rptr _AND
++       register FILE * fp  _AND
++ 	  int            is_locked)
++ {
++   if (fp->_flags & __SMBF)
++     _free_r (rptr, (char *) fp->_bf._base);
++   if (HASUB (fp))
++     FREEUB (rptr, fp);
++   if (HASLB (fp))
++     FREELB (rptr, fp);
++   fp->_flags = 0;		/* release this FILE for reuse */
++   if ( is_locked )
++     _funlockfile (fp);
++ #ifndef __SINGLE_THREAD__
++   __lock_close_recursive (fp->_lock);
++ #endif
++ }
++ 
+  int
+  _DEFUN(_fclose_r, (rptr, fp),
+        struct _reent *rptr _AND
+***************
+*** 92,114 ****
+    r = _fflush_r (rptr, fp);
+    if (fp->_close != NULL && fp->_close (rptr, fp->_cookie) < 0)
+      r = EOF;
+!   if (fp->_flags & __SMBF)
+!     _free_r (rptr, (char *) fp->_bf._base);
+!   if (HASUB (fp))
+!     FREEUB (rptr, fp);
+!   if (HASLB (fp))
+!     FREELB (rptr, fp);
+!   fp->_flags = 0;		/* release this FILE for reuse */
+!   _funlockfile (fp);
+! #ifndef __SINGLE_THREAD__
+!   __lock_close_recursive (fp->_lock);
+! #endif
+  
+    __sfp_lock_release ();
+  
+    return (r);
+  }
+  
+  #ifndef _REENT_ONLY
+  
+  int
+--- 112,145 ----
+    r = _fflush_r (rptr, fp);
+    if (fp->_close != NULL && fp->_close (rptr, fp->_cookie) < 0)
+      r = EOF;
+!   _do_reclaim_fp(rptr, fp, 1);
+  
+    __sfp_lock_release ();
+  
+    return (r);
+  }
+  
++ int
++ _DEFUN(__reclaim_fp, (fp),
++       register FILE * fp)
++ {
++   /* must not lock anything; thread might be 
++    * halfway torn-down already.
++    * ASSUME: 1) fp is part of thread-local reent; hence no need to __sfp_lock_acquire()
++    *         2) no other thread is using fp anymore hence it is OK not to lock
++    *         3) CHECK_INIT is not needed since the cleanup is only invoked
++    *            if __sdidinit
++    *
++    * PS: it really doesn't make much sense to use internal locking on a FILE
++    *     that is thread-local (stdin/stdout/stderr). Too bad we don't have
++    *     an option...
++    */
++   if ( fp )
++   	_do_reclaim_fp( _REENT, fp, 0 /* we didn't lock fp */);
++ 
++   return (0);
++ }
++ 
+  #ifndef _REENT_ONLY
+  
+  int
+*** newlib-1.16.0/newlib/libc/stdio/findfp.c.orig	2007-07-31 13:49:40.516445574 -0700
+--- newlib-1.16.0/newlib/libc/stdio/findfp.c	2008-03-07 15:44:23.702883081 -0800
+***************
+*** 158,165 ****
+--- 158,174 ----
+  _DEFUN(_cleanup_r, (ptr),
+         struct _reent *ptr)
+  {
++ #ifndef _STDIO_CLEANUP_NO_IO_SYSCALLS
+    _CAST_VOID _fwalk(ptr, fclose);
+    /* _CAST_VOID _fwalk (ptr, fflush); */	/* `cheating' */
++ #else
++   /* reclaim memory associated with FILEs attached to this
++    * reent without performing any I/O operations (no fflush,
++    * no close). E.g., RTEMS calls __reclaim_reent during thread
++    * deletion when it is no longer safe to do I/O.
++    */
++   _CAST_VOID _fwalk(ptr, __reclaim_fp);
++ #endif
+  }
+  
+  #ifndef _REENT_ONLY
+*** newlib-1.16.0/newlib/libc/stdio/local.h.orig	2007-06-04 11:10:17.592444975 -0700
+--- newlib-1.16.0/newlib/libc/stdio/local.h	2008-03-07 15:44:23.705883057 -0800
+***************
+*** 58,63 ****
+--- 58,65 ----
+  						  const char *, int));
+  #endif
+  
++ extern int    _EXFUN(__reclaim_fp,(FILE *));
++ 
+  /* Called by the main entry point fns to ensure stdio has been initialized.  */
+  
+  #ifdef _REENT_SMALL

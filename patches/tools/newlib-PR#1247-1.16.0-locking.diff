@@ -1,0 +1,150 @@
+ * Add definitions for locking for RTEMS (fixes PR#1247)
+ * NOTE: you need to apply rtems-newlibc-1.4.0-locking.diff to RTEMS as well
+
+ T.S., 
+
+*** newlib-1.16.0/newlib/libc/stdio/findfp.c.orig	2007-07-31 13:49:40.230763259 -0700
+--- newlib-1.16.0/newlib/libc/stdio/findfp.c	2008-03-07 15:33:25.515984775 -0800
+***************
+*** 62,67 ****
+--- 62,71 ----
+    ptr->_seek = __sseek;
+    ptr->_close = __sclose;
+  #if !defined(__SINGLE_THREAD__) && !defined(_REENT_SMALL)
++ #ifdef __rtems__
++ 	/* assume NULL _lock is no lock */
++ 	if ( data == _GLOBAL_REENT )
++ #endif
+    __lock_init_recursive (ptr->_lock);
+    /*
+     * #else
+***************
+*** 127,132 ****
+--- 131,140 ----
+    fp->_file = -1;		/* no file */
+    fp->_flags = 1;		/* reserve this slot; caller sets real flags */
+  #ifndef __SINGLE_THREAD__
++ #ifdef __rtems__
++ 	/* assume NULL _lock is no lock */
++ 	if ( d == _GLOBAL_REENT )
++ #endif
+    __lock_init_recursive (fp->_lock);
+  #endif
+    __sfp_lock_release ();
+*** newlib-1.16.0/newlib/libc/stdio/fwalk.c.orig	2004-09-16 14:26:51.291762766 -0700
+--- newlib-1.16.0/newlib/libc/stdio/fwalk.c	2008-03-07 15:33:25.260763016 -0800
+***************
+*** 80,91 ****
+--- 80,97 ----
+  {
+    register int ret = 0;
+  
++ #ifdef __rtems__
++ 	if ( ptr == _GLOBAL_REENT )
++ #endif
+    __sfp_lock_acquire ();
+  
+    /* Must traverse given list for streams.  Note that _GLOBAL_REENT
+       only walked once in exit().  */
+    ret |= __fwalk (ptr, function);
+  
++ #ifdef __rtems__
++ 	if ( ptr == _GLOBAL_REENT )
++ #endif
+    __sfp_lock_release ();
+  
+    return ret;
+***************
+*** 100,111 ****
+--- 106,123 ----
+  {
+    register int ret = 0;
+  
++ #ifdef __rtems__
++ 	if ( ptr == _GLOBAL_REENT )
++ #endif
+    __sfp_lock_acquire ();
+  
+    /* Must traverse given list for streams.  Note that _GLOBAL_REENT
+       only walked once in exit().  */
+    ret |= __fwalk_reent (ptr, reent_function);
+  
++ #ifdef __rtems__
++ 	if ( ptr == _GLOBAL_REENT )
++ #endif
+    __sfp_lock_release ();
+  
+    return ret;
+*** newlib-1.16.0/newlib/libc/sys/rtems/sys/lock.h.orig	2008-03-07 15:33:25.989740969 -0800
+--- newlib-1.16.0/newlib/libc/sys/rtems/sys/lock.h	2008-03-07 15:33:25.592728020 -0800
+***************
+*** 0 ****
+--- 1,68 ----
++ #ifndef __SYS_LOCK_H__
++ #define __SYS_LOCK_H__
++ 
++ /* Lock routines for RTEMS */
++ 
++ /* Till Straumann, 6/2007  */
++ 
++ typedef struct __RTEMS_libc_lock_opaque * _LOCK_T;
++ typedef _LOCK_T _LOCK_RECURSIVE_T;
++ 
++ #ifdef __cplusplus
++ extern "C" {
++ #endif
++ 
++ /* void __rtems_libc_lock_create_recursive(_LOCK_RECURSIVE_T *plock); */
++ void __rtems_libc_lock_close_recursive(_LOCK_RECURSIVE_T *plock);
++ int  __rtems_libc_lock_acquire_recursive(volatile _LOCK_RECURSIVE_T *plock, int wait);
++ void __rtems_libc_lock_release_recursive(_LOCK_RECURSIVE_T *plock);
++ 
++ #ifdef __cplusplus
++ };
++ #endif
++ 
++ 
++ #define __LOCK_INIT(class,lock)           class _LOCK_T           lock = 0
++ #define __LOCK_INIT_RECURSIVE(class,lock) class _LOCK_RECURSIVE_T lock = 0
++ #if 0
++ #define __lock_init(lock)                  __rtems_libc_lock_create_recursive(&(lock))
++ #define __lock_init_recursive(lock)        __rtems_libc_lock_create_recursive(&(lock))
++ #else
++ /* Use lazy init */
++ #define __lock_init(lock)                  ((lock)=0)
++ #define __lock_init_recursive(lock)        ((lock)=0)
++ #endif
++ #define __lock_close(lock)                 __rtems_libc_lock_close_recursive(&(lock))
++ #define __lock_close_recursive(lock)       __rtems_libc_lock_close_recursive(&(lock))
++ #define __lock_acquire(lock)               __rtems_libc_lock_acquire_recursive(&(lock), -1)
++ #define __lock_acquire_recursive(lock)     __rtems_libc_lock_acquire_recursive(&(lock), -1)
++ #define __lock_try_acquire(lock)           __rtems_libc_lock_acquire_recursive(&(lock),  0)
++ #define __lock_try_acquire_recursive(lock) __rtems_libc_lock_acquire_recursive(&(lock),  0)
++ #define __lock_release(lock)               __rtems_libc_lock_release_recursive(&(lock))
++ #define __lock_release_recursive(lock)     __rtems_libc_lock_release_recursive(&(lock))
++ 
++ /* this protects DIRs (one lock per open DIR) but also a global data structure
++  * (one additional global lock). While we could live with non thread-safe DIRs
++  * we must have the global lock...
++ 
++ #define HAVE_DD_LOCK
++ 
++  UPDATE: HAVE_DD_LOCK is not needed since RTEMS provides it's own implementations
++  *       of opendir/readdir + friends... (which are unprotected, BTW -- but
++  *       there is no global data structure that would need protection, just
++  *       individual DIRs are not protected.).
++  *
++  * (I leave the comment here for sake of clarity)
++  */
++ 
++ /* no file-locking for now (concerned about 'putchar'/'getchar' efficiency).
++  * Note that stdin/stdout/stderr have per-thread file buffers so I/O to these
++  * three special files is OK w/o locking (if underlying filesystem is thread-safe).
++  * If the empty #defines are commented then sys/stdio.h will define these
++  * macros to use __lock_acquire_recursive()/__lock_release_recursive(),
++  * respectively.
++  */
++ #define _flockfile(fp)
++ #define _funlockfile(fp)
++ 
++ #endif /* __SYS_LOCK_H__ */

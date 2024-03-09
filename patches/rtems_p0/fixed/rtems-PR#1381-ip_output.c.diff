@@ -1,0 +1,27 @@
+--- ip_output-orig.c	2009-02-16 16:00:42.000000000 -0500
++++ ip_output.c	2009-02-16 16:03:04.000000000 -0500
+@@ -31,7 +31,7 @@
+  */
+ 
+ /*
+- *	$Id: ip_output.c,v 1.11 2008/12/22 07:47:28 ralf Exp $
++ *	$Id: ip_output.c,v 1.10 2008/09/01 06:36:17 ralf Exp $
+  */
+ 
+ #define _IP_VHL
+@@ -163,6 +163,15 @@
+ 		ifp = ia->ia_ifp;
+ 		ip->ip_ttl = 1;
+ 		isbroadcast = in_broadcast(dst->sin_addr, ifp);
++	} else if (IN_MULTICAST(ntohl(ip->ip_dst.s_addr)) &&
++	    imo != NULL && imo->imo_multicast_ifp != NULL) {
++		/*
++		 * Bypass the normal routing lookup for multicast
++		 * packets if the interface is specified.
++		 */
++		ifp = imo->imo_multicast_ifp;
++		IFP_TO_IA(ifp, ia);
++		isbroadcast = 0;	/* fool gcc */
+ 	} else {
+ 		/*
+ 		 * If this is the case, we probably don't want to allocate

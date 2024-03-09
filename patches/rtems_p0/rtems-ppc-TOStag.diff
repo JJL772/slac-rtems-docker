@@ -1,0 +1,82 @@
+ * FIXED on 4.11 HEAD
+
+Index: c/src/lib/libbsp/powerpc/shared/start/preload.S
+===================================================================
+RCS file: /usr1/CVS/rtems/c/src/lib/libbsp/powerpc/shared/start/preload.S,v
+retrieving revision 1.2
+diff -c -r1.2 preload.S
+*** c/src/lib/libbsp/powerpc/shared/start/preload.S	30 Nov 2009 04:32:24 -0000	1.2
+--- c/src/lib/libbsp/powerpc/shared/start/preload.S	28 Jul 2011 01:05:51 -0000
+***************
+*** 84,90 ****
+   * if DESTINATION_ADDR is not 0
+   */
+  #define KERNELBASE			0x0
+! #define INITIAL_STACK		0x78					/* 8-byte aligned */
+  #define CACHE_LINE_SIZE		PPC_CACHE_ALIGNMENT 	/* autodetect doesn't work, see below */
+  #define	ASSUME_RTEMS_INSTALLS_VECTORS				/* assume we need not load vectors */
+  #define DONT_USE_R5_ENTRY							/* always dynamically determine the address we're running from */
+--- 84,90 ----
+   * if DESTINATION_ADDR is not 0
+   */
+  #define KERNELBASE			0x0
+! #define INITIAL_STACK		0x70					/* 16-byte aligned */
+  #define CACHE_LINE_SIZE		PPC_CACHE_ALIGNMENT 	/* autodetect doesn't work, see below */
+  #define	ASSUME_RTEMS_INSTALLS_VECTORS				/* assume we need not load vectors */
+  #define DONT_USE_R5_ENTRY							/* always dynamically determine the address we're running from */
+***************
+*** 211,216 ****
+--- 211,219 ----
+  
+  	/* setup initial stack for rtems early boot */
+  	li		r1,INITIAL_STACK
++ 	/* tag TOS with a NULL pointer (for stack trace) */
++ 	li      r0, 0
++ 	stw     r0, 0(r1)
+  	/* disable the MMU and fire up rtems */
+  	mfmsr	r0
+  	ori 	r0,r0,MSR_IR|MSR_DR|MSR_IP|MSR_ME
+Index: c/src/lib/libbsp/powerpc/shared/start/start.S
+===================================================================
+RCS file: /usr1/CVS/rtems/c/src/lib/libbsp/powerpc/shared/start/start.S,v
+retrieving revision 1.26.2.1
+diff -c -r1.26.2.1 start.S
+*** c/src/lib/libbsp/powerpc/shared/start/start.S	4 Mar 2011 16:56:23 -0000	1.26.2.1
+--- c/src/lib/libbsp/powerpc/shared/start/start.S	28 Jul 2011 01:05:51 -0000
+***************
+*** 129,134 ****
+--- 129,140 ----
+  	li   r0, (CPU_STACK_ALIGNMENT-1)
+  	andc r1, r9, r0
+  	/*
++ 	 * Tag TOS with a NULL (terminator for stack dump)
++ 	 */
++ 	li   r0, 0
++ 	stw  r0, 0(r1)
++ 	
++ 	/*
+  	 * We are now in a environment that is totally independent from
+  	 * bootloader setup.
+  	 */
+Index: c/src/lib/libbsp/powerpc/mvme3100/start/start.S
+===================================================================
+RCS file: /usr1/CVS/rtems/c/src/lib/libbsp/powerpc/mvme3100/start/start.S,v
+retrieving revision 1.7
+retrieving revision 1.8
+diff -c -r1.7 -r1.8
+*** c/src/lib/libbsp/powerpc/mvme3100/start/start.S	28 Jan 2011 20:29:51 -0000	1.7
+--- c/src/lib/libbsp/powerpc/mvme3100/start/start.S	28 Jul 2011 19:27:58 -0000	1.8
+***************
+*** 78,83 ****
+--- 78,88 ----
+  	/* align down to 16-bytes */
+  	li  r5, (CPU_STACK_ALIGNMENT - 1)
+  	andc r1, r9, r5
++ 
++ 	/* NULL ptr to back chain */
++ 	li  r0, 0
++ 	stw r0, 0(r1)
++ 
+  	/*
+  	 * We are now in a environment that is totally independent from
+  	 * bootloader setup.

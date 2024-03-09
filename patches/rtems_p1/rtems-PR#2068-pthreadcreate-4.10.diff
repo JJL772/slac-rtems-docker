@@ -1,0 +1,34 @@
+*** cpukit/posix/src/pthreadcreate.c.orig	2012-06-14 09:01:56.000000002 -0700
+--- cpukit/posix/src/pthreadcreate.c	2012-06-14 09:04:14.000000002 -0700
+***************
+*** 198,203 ****
+--- 198,205 ----
+     */
+    the_thread->do_post_task_switch_extension = true;
+  
++   _Thread_Disable_dispatch();
++ 
+    /*
+     *  POSIX threads are allocated and started in one operation.
+     */
+***************
+*** 217,222 ****
+--- 219,225 ----
+       *        thread while we are creating it.
+       */
+      if ( !status ) {
++       _Thread_Enable_dispatch();
+        _POSIX_Threads_Free( the_thread );
+        _RTEMS_Unlock_allocator();
+        return EINVAL;
+***************
+*** 230,235 ****
+--- 233,240 ----
+      );
+    }
+  
++   _Thread_Enable_dispatch();
++ 
+    /*
+     *  Return the id and indicate we successfully created the thread
+     */

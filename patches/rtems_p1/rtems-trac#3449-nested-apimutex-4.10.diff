@@ -1,0 +1,106 @@
+*** cpukit/score/src/apimutexallocate.c.orig	Thu Jun  7 11:31:38 2018
+--- cpukit/score/src/apimutexallocate.c	Thu Jun  7 11:49:58 2018
+***************
+*** 15,20 ****
+--- 15,21 ----
+  
+  #include <rtems/system.h>
+  #include <rtems/score/apimutex.h>
++ #include <rtems/score/interr.h>
+  
+  void _API_Mutex_Allocate(
+    API_Mutex_Control **the_mutex
+***************
+*** 23,29 ****
+    API_Mutex_Control *mutex;
+  
+    CORE_mutex_Attributes attr =  {
+!     CORE_MUTEX_NESTING_IS_ERROR,
+      false,
+      CORE_MUTEX_DISCIPLINES_PRIORITY_INHERIT,
+      0
+--- 24,30 ----
+    API_Mutex_Control *mutex;
+  
+    CORE_mutex_Attributes attr =  {
+!     CORE_MUTEX_NESTING_ACQUIRES,
+      false,
+      CORE_MUTEX_DISCIPLINES_PRIORITY_INHERIT,
+      0
+***************
+*** 31,36 ****
+--- 32,46 ----
+  
+    mutex = (API_Mutex_Control *) _Objects_Allocate( &_API_Mutex_Information );
+  
++   if ( 0 == mutex ) {
++     /* No proper error code exists... */
++     _Internal_error_Occurred(
++       INTERNAL_ERROR_CORE,
++       true,
++       INTERNAL_ERROR_TOO_LITTLE_WORKSPACE
++     );
++   }
++ 
+    _CORE_mutex_Initialize( &mutex->Mutex, &attr, CORE_MUTEX_UNLOCKED );
+  
+    _Objects_Open_u32( &_API_Mutex_Information, &mutex->Object, 1 );
+*** cpukit/score/src/apimutexlock.c.orig	Thu Jun  7 11:31:47 2018
+--- cpukit/score/src/apimutexlock.c	Thu Jun  7 11:40:06 2018
+***************
+*** 15,20 ****
+--- 15,21 ----
+  
+  #include <rtems/system.h>
+  #include <rtems/score/apimutex.h>
++ #include <rtems/score/interr.h>
+  
+  void _API_Mutex_Lock(
+    API_Mutex_Control *the_mutex
+***************
+*** 31,34 ****
+--- 32,45 ----
+      0,
+      level
+    );
++ 
++   if ( CORE_MUTEX_STATUS_SUCCESSFUL != _Thread_Executing->Wait.return_code ) {
++     /* No really suitable error code exists... */
++     _Internal_error_Occurred(
++       INTERNAL_ERROR_CORE,
++       true,
++       INTERNAL_ERROR_MUTEX_OBTAIN_FROM_BAD_STATE
++     );
++   }
++ 
+  }
+*** cpukit/score/src/apimutexunlock.c.orig	Thu Jun  7 11:33:47 2018
+--- cpukit/score/src/apimutexunlock.c	Thu Jun  7 11:50:16 2018
+***************
+*** 15,20 ****
+--- 15,21 ----
+  
+  #include <rtems/system.h>
+  #include <rtems/score/apimutex.h>
++ #include <rtems/score/interr.h>
+  
+  void _API_Mutex_Unlock(
+    API_Mutex_Control *the_mutex
+***************
+*** 26,30 ****
+--- 27,41 ----
+        the_mutex->Object.id,
+        NULL
+     );
++ 
++   if ( CORE_MUTEX_STATUS_SUCCESSFUL != _Thread_Executing->Wait.return_code ) {
++     /* No really suitable error code exists... */
++     _Internal_error_Occurred(
++       INTERNAL_ERROR_CORE,
++       true,
++       INTERNAL_ERROR_MUTEX_OBTAIN_FROM_BAD_STATE
++     );
++   }
++ 
+    _Thread_Enable_dispatch();
+  }

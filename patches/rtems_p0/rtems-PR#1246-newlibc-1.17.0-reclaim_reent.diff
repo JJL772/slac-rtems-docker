@@ -1,0 +1,104 @@
+ - This patch addresses PR#1246 (plug memory leak when task is deleted)
+   by invoking newlib __reclaim_reent() to release all memory attached
+   to the 'reent' struct.
+ - NOTE: companion patch for newlib 'newlib-1.14.0-rtems_stdio_cleanup.diff'
+         is required to prevent newlib from flushing and closing stdin/out/err
+		 descriptors.
+*** cpukit/libcsupport/src/newlibc_reent.c.orig	2009-10-14 11:27:54.000000000 -0500
+--- cpukit/libcsupport/src/newlibc_reent.c	2009-10-20 09:32:40.000000000 -0500
+***************
+*** 38,43 ****
+--- 38,49 ----
+  
+  #include <stdio.h>
+  
++ #ifndef _STDIO_CLEANUP_NO_IO_SYSCALLS
++ #error "newlib patch missing; cannot use _reclaim_reent to free 'reent' memory\nPatch newlib (recommended) or remove this test to live with memory leaks"
++ #endif
++ 
++ extern void _reclaim_reent(struct _reent*);
++ 
+  int _fwalk(struct _reent *ptr, int (*function) (FILE *) );
+  
+  extern struct _reent * const _global_impure_ptr __ATTRIBUTE_IMPURE_PTR__;
+***************
+*** 103,108 ****
+--- 109,115 ----
+   *
+   */
+  
++ #ifndef _STDIO_CLEANUP_NO_IO_SYSCALLS
+  int newlib_free_buffers(
+    FILE *fp
+  )
+***************
+*** 122,127 ****
+--- 129,135 ----
+    }
+    return 0;
+  }
++ #endif
+  
+  void newlib_delete_hook(
+    rtems_tcb *current_task,
+***************
+*** 136,146 ****
+--- 144,161 ----
+  
+    if (current_task == deleted_task) {
+      ptr = _REENT;
++ #ifdef _STDIO_CLEANUP_NO_IO_SYSCALLS
++     /* must set this prior to calling _reclaim_reent()
++      * (will refuse to reclaim current _REENT)
++      */
++     _REENT = 0;
++ #endif
+    } else {
+      ptr = deleted_task->libc_reent;
+    }
+  
+    if (ptr && ptr != _global_impure_ptr) {
++ #ifndef _STDIO_CLEANUP_NO_IO_SYSCALLS
+  /*
+      _wrapup_reent(ptr);
+      _reclaim_reent(ptr);
+***************
+*** 149,154 ****
+--- 164,180 ----
+       *  Just in case there are some buffers lying around.
+       */
+      _fwalk(ptr, newlib_free_buffers);
++ #else
++ 	/* NOTE: newlib (1.15.0) patch is needed to avoid
++ 	 *       fflush/close implicit to the default _cleanup_r()
++ 	 *       that releases stdio buffers. We just want
++ 	 *       memory to be released but cannot flush
++ 	 *       (thread-dispatching disabled at this point)
++ 	 *       nor do we want to close fds 0,1,2 since
++ 	 *       they are shared by all threads.
++ 	 */
++ 	_reclaim_reent(ptr);
++ #endif
+  #if REENT_MALLOCED
+      free(ptr);
+  #else
+***************
+*** 158,163 ****
+--- 184,190 ----
+  
+    deleted_task->libc_reent = NULL;
+  
++ #ifndef _STDIO_CLEANUP_NO_IO_SYSCALLS
+    /*
+     * Require the switch back to another task to install its own
+     */
+***************
+*** 165,170 ****
+--- 192,198 ----
+    if ( current_task == deleted_task ) {
+      _REENT = 0;
+    }
++ #endif
+  }
+  
+  #endif

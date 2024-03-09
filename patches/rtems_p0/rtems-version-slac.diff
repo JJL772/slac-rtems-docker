@@ -1,0 +1,20 @@
+NOTE: Must apply *before* 'bootstrapping'
+
+Index: cpukit/aclocal/version.m4
+===================================================================
+RCS file: /usr1/CVS/rtems/cpukit/aclocal/version.m4,v
+retrieving revision 1.24.2.3
+diff -c -r1.24.2.3 version.m4
+*** cpukit/aclocal/version.m4	12 Mar 2009 17:03:39 -0000	1.24.2.3
+--- cpukit/aclocal/version.m4	17 Aug 2009 14:50:12 -0000
+***************
+*** 1,4 ****
+  AC_DEFUN([RTEMS_VERSIONING],
+! m4_define([_RTEMS_VERSION],[4.10.1]))
+  
+  m4_define([RTEMS_API],[4.9])
+--- 1,4 ----
+  AC_DEFUN([RTEMS_VERSIONING],
+! m4_define([_RTEMS_VERSION],[4.10.1-slac_p0]))
+  
+  m4_define([RTEMS_API],[4.9])

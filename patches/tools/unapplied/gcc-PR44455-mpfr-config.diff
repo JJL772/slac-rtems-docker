@@ -1,0 +1,38 @@
+*** gcc-4.4.6/configure.ac.orig	2011-07-25 20:04:11.000000000 -0700
+--- gcc-4.4.6/configure.ac	2011-07-25 20:05:43.000000000 -0700
+***************
+*** 1251,1257 ****
+  if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
+    gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+!   extra_mpfr_configure_flags='--with-gmp-build=$$r/$(HOST_SUBDIR)/gmp'
+    # Do not test the gmp version.  Assume that it is sufficient, since
+    # it is in the source tree, and the library has not been built yet
+    # but it would be included on the link line in the version check below
+--- 1251,1257 ----
+  if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
+    gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+!   extra_mpfr_configure_flags='--with-gmp-include=$$r/$(HOST_SUBDIR)/gmp --with-gmp-lib=$$r/$(HOST_SUBDIR)/gmp/'"$lt_cv_objdir"
+    # Do not test the gmp version.  Assume that it is sufficient, since
+    # it is in the source tree, and the library has not been built yet
+    # but it would be included on the link line in the version check below
+*** gcc-4.4.6/configure.orig	2011-07-25 20:05:52.000000000 -0700
+--- gcc-4.4.6/configure	2011-07-25 20:06:24.000000000 -0700
+***************
+*** 4599,4605 ****
+  if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
+    gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+!   extra_mpfr_configure_flags='--with-gmp-build=$$r/$(HOST_SUBDIR)/gmp'
+    # Do not test the gmp version.  Assume that it is sufficient, since
+    # it is in the source tree, and the library has not been built yet
+    # but it would be included on the link line in the version check below
+--- 4599,4605 ----
+  if test "x$with_gmp$with_gmp_include$with_gmp_lib" = x && test -d ${srcdir}/gmp; then
+    gmplibs='-L$$r/$(HOST_SUBDIR)/gmp/.libs -L$$r/$(HOST_SUBDIR)/gmp/_libs '"$gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/gmp -I$$s/gmp '"$gmpinc"
+!   extra_mpfr_configure_flags='--with-gmp-include=$$r/$(HOST_SUBDIR)/gmp --with-gmp-lib=$$r/$(HOST_SUBDIR)/gmp/'"$lt_cv_objdir"
+    # Do not test the gmp version.  Assume that it is sufficient, since
+    # it is in the source tree, and the library has not been built yet
+    # but it would be included on the link line in the version check below

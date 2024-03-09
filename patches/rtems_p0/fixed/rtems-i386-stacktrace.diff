@@ -1,0 +1,84 @@
+ This patch prints a stack trace from the default exception handler
+ (VERY useful).
+
+ T.S, 2007/7
+*** cpukit/score/cpu/i386/cpu.c.~1~	2008-09-04 23:38:12.465085792 -0700
+--- cpukit/score/cpu/i386/cpu.c	2008-09-30 17:32:08.112570447 -0700
+***************
+*** 90,95 ****
+--- 90,100 ----
+    return NULL;
+  }
+  
++ struct Frame_ {
++ 	struct Frame_  *up;
++ 	uintptr_t		pc;
++ };
++ 
+  void _defaultExcHandler (CPU_Exception_frame *ctx)
+  {
+    unsigned int faultAddr = 0;
+***************
+*** 124,135 ****
+      _CPU_Fatal_halt(faultAddr);
+    }
+    else {
+      /*
+       * OK I could probably use a simplified version but at least this
+       * should work.
+       */
+!     printk(" ************ FAULTY THREAD WILL BE DELETED **************\n");
+!     rtems_task_delete(_Thread_Executing->Object.id);
+    }
+  }
+  
+--- 129,152 ----
+      _CPU_Fatal_halt(faultAddr);
+    }
+    else {
++   	struct Frame_ *fp = (struct Frame_*)ctx->ebp;
++ 	int           i;
++ 
++ 	printk("Call Stack Trace of EIP:\n");
++ 	if ( fp ) {
++ 		for ( i=1; fp->up; fp=fp->up, i++ ) {
++ 			printk("0x%08x ",fp->pc);
++ 			if ( ! (i&3) )
++ 				printk("\n");
++ 		}
++ 	}
++ 	printk("\n");
+      /*
+       * OK I could probably use a simplified version but at least this
+       * should work.
+       */
+!     printk(" ************ FAULTY THREAD WILL BE SUSPENDED **************\n");
+!     rtems_task_suspend(_Thread_Executing->Object.id);
+    }
+  }
+  
+*** cpukit/score/cpu/i386/rtems/score/cpu.h.~1~	2008-09-08 08:19:12.457085847 -0700
+--- cpukit/score/cpu/i386/rtems/score/cpu.h	2008-09-30 17:33:53.468846268 -0700
+***************
+*** 300,309 ****
+      if ( (_isr) ) (_the_context)->eflags = CPU_EFLAGS_INTERRUPTS_OFF; \
+      else          (_the_context)->eflags = CPU_EFLAGS_INTERRUPTS_ON; \
+      \
+!     _stack = ((uint32_t)(_stack_base)) + (_size) - 4; \
+      \
+      *((proc_ptr *)(_stack)) = (_entry_point); \
+!     (_the_context)->ebp     = (void *) _stack; \
+      (_the_context)->esp     = (void *) _stack; \
+    } while (0)
+  
+--- 300,309 ----
+      if ( (_isr) ) (_the_context)->eflags = CPU_EFLAGS_INTERRUPTS_OFF; \
+      else          (_the_context)->eflags = CPU_EFLAGS_INTERRUPTS_ON; \
+      \
+!     _stack = ((uint32_t)(_stack_base)) + (_size) - sizeof(proc_ptr*); \
+      \
+      *((proc_ptr *)(_stack)) = (_entry_point); \
+!     (_the_context)->ebp     = (void *) 0; \
+      (_the_context)->esp     = (void *) _stack; \
+    } while (0)
+  

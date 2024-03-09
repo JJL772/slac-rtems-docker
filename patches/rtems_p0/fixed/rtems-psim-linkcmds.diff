@@ -1,0 +1,19 @@
+*** c/src/lib/libbsp/powerpc/psim/startup/linkcmds.orig	2009-10-20 09:46:35.000000000 -0500
+--- c/src/lib/libbsp/powerpc/psim/startup/linkcmds	2009-10-20 09:46:43.000000000 -0500
+***************
+*** 214,220 ****
+    _edata  =  .;
+    PROVIDE (edata = .);
+  
+!   PROVIDE (RAM_END = 8M);
+    .sbss      :
+    {
+      PROVIDE (__sbss_start = .);
+--- 214,220 ----
+    _edata  =  .;
+    PROVIDE (edata = .);
+  
+!   PROVIDE (RAM_END = 32M);
+    .sbss      :
+    {
+      PROVIDE (__sbss_start = .);

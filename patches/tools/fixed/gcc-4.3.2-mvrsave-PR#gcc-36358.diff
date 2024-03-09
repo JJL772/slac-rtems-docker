@@ -1,0 +1,16 @@
+*** gcc-4.3.2/gcc/config/rs6000/rs6000.c.orig	2008-06-10 10:13:57.000000000 -0700
+--- gcc-4.3.2/gcc/config/rs6000/rs6000.c	2008-09-26 14:01:39.000000000 -0700
+***************
+*** 2139,2144 ****
+--- 2139,2149 ----
+        rs6000_explicit_options.aix_struct_ret = true;
+        break;
+  
++     case OPT_mvrsave:
++       rs6000_explicit_options.vrsave = true;
++ 	  TARGET_ALTIVEC_VRSAVE = value;
++       break;
++ 
+      case OPT_mvrsave_:
+        rs6000_explicit_options.vrsave = true;
+        rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));

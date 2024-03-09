@@ -1,0 +1,39 @@
+NOTE: MUST run autoconf after applying this patch !
+*** gcc-4.3.2/gcc/configure.ac.orig	2008-08-01 02:51:03.000000000 -0700
+--- gcc-4.3.2/gcc/configure.ac	2008-09-26 14:11:35.000000000 -0700
+***************
+*** 3708,3714 ****
+  fi
+  echo "source ${srcdir}/gdbinit.in" >> .gdbinit
+  
+! gcc_tooldir='$(libsubdir)/$(libsubdir_to_prefix)$(target_noncanonical)'
+  AC_SUBST(gcc_tooldir)
+  AC_SUBST(dollar)
+  
+--- 3708,3714 ----
+  fi
+  echo "source ${srcdir}/gdbinit.in" >> .gdbinit
+  
+! gcc_tooldir='$(libsubdir)/$(libsubdir_to_prefix)$(prefix_to_exec_prefix)$(target_noncanonical)'
+  AC_SUBST(gcc_tooldir)
+  AC_SUBST(dollar)
+  
+*** gcc-4.3.2/gcc/configure.orig	2010-06-14 06:36:01.000000000 -0700
+--- gcc-4.3.2/gcc/configure	2010-06-14 06:36:41.000000000 -0700
+***************
+*** 23060,23066 ****
+  fi
+  echo "source ${srcdir}/gdbinit.in" >> .gdbinit
+  
+! gcc_tooldir='$(libsubdir)/$(libsubdir_to_prefix)$(target_noncanonical)'
+  
+  
+  
+--- 23060,23066 ----
+  fi
+  echo "source ${srcdir}/gdbinit.in" >> .gdbinit
+  
+! gcc_tooldir='$(libsubdir)/$(libsubdir_to_prefix)$(prefix_to_exec_prefix)$(target_noncanonical)'
+  
+  
+  

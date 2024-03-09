@@ -1,0 +1,28 @@
+This directory contains scripts to reproduce the 'configure' options
+that were used when building various components.
+
+config-cross.ssrl was used for
+ - autoxxx tools
+ - binutils
+ - gdb
+ - xsyms  ** NOTES **
+			'xsyms' resides in the 'src/tools' directory
+
+				cd 'src/tools/xsyms'
+				mkdir build-<tgt>-xsyms
+				cd build-<tgt>-xsyms
+				../../../configs/config-cross.ssrl -t <tgt>
+			    make
+				make install
+
+ - ldep (this is not a cross but a pure host tool but the script can still handle it)
+		build instructions are identical to 'xsyms' (but the target flag is ignored)
+
+****** PROBABLY OBSOLETE BEGIN ******
+config-gcc.ssrl is used for the cross-gcc
+*NOTE* /opt/rtems/<tgt>-rtems/lib/libiberty.a (installed by gcc install) MUST BE REMOVED; 
+       IT CONFLICTS WITH CEXP's libiberty.a. The gcc installed version contains too many
+       things (stuff that's already in newlibc and which generates linkage errors).
+****** PROBABLY OBSOLETE END ******
+
+config-rtems.ssrl is used for configuring RTEMS

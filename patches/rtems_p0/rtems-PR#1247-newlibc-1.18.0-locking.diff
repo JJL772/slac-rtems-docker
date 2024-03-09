@@ -1,0 +1,438 @@
+ - this patch addresses PR#1247; it implements the mutexes required
+   to support proper locking for global newlib datastructures.
+ - new: cpukit/libcsupport/src/newlib_locks.c
+ - obsoletes: cpukit/libcsupport/src/envlock.c
+ - NOTE: configurable parameter NEWLIBC_USE_SHARED_GBL_LOCK
+         (consult newlib_locks.c for details)
+ - NOTE: NEWLIB ALSO NEEDS TO BE PATCHED -- otherwise the locks
+         won't be used. The newlib patch introduces sys/rtems/sys/lock.h
+         (compilation of patched rtems with unpatched newlib headers
+         will fail).
+*** cpukit/libcsupport/src/envlock.c.~1~	2010-04-30 01:55:40.000000000 -0700
+--- cpukit/libcsupport/src/envlock.c	1969-12-31 16:00:00.000000000 -0800
+***************
+*** 1,108 ****
+- /*
+-  *  Author: Till Straumann <strauman@slac.stanford.edu>, 3/2002
+-  *
+-  *  $Id: envlock.c,v 1.5 2010/04/30 08:55:40 sh Exp $
+-  */
+- 
+- /* provide locking for the global environment 'environ' */
+- 
+- #if HAVE_CONFIG_H
+- #include "config.h"
+- #endif
+- 
+- #include <rtems.h>
+- #include <sys/reent.h>
+- 
+- #include <assert.h>
+- 
+- /*
+-  * NOTES:
+-  *  - although it looks like a classical multiple-readers / single writer (MRSW)
+-  *    locking problem, we still use a single lock for the following reasons:
+-  *     1) newlib has no provision / hook for calling different locking routines
+-  *        from setenv/putenv and getenv, respectively.
+-  *     2) MRSW involves calling several semaphore-primitives, even in the most
+-  *        likely case of a first-reader's access. This probably takes more CPU
+-  *        time than just waiting until another reader is done; environment
+-  *        access is fast.
+-  *  - the lock implementation must allow nesting (same thread may call
+-  *    lock-lock-unlock-unlock).
+-  *  - NEWLIB-1.8.2 has an ugly BUG: if environ is NULL, _findenv_r() bails
+-  *    out leaving the lock held :-(
+-  *
+-  *  Used by the following functions:
+-  *    findenv_r(), setenv_r(), and unsetenv_r() which are called by
+-  *    getenv(), getenv_r(), setenv(), and unsetenv().
+-  *
+-  */
+- 
+- #if defined(ENVLOCK_DEDIDCATED_MUTEX)
+- static rtems_id envLock=0;
+- 
+- static void
+- __rtems_envlock_init(void)
+- {
+-   extern char        **environ;
+-   rtems_status_code    rc;
+- 
+-   if (envLock) /* already initialized */
+-     return;
+- 
+-   assert(environ && "MUST have non-NULL 'environ' due to newlib bug");
+- 
+-   rc = rtems_semaphore_create(
+-       rtems_build_name('E','N','V','S'),
+-       1,
+-       RTEMS_BINARY_SEMAPHORE | RTEMS_PRIORITY | RTEMS_INHERIT_PRIORITY,
+-       0,
+-       &envLock);
+-   if (RTEMS_SUCCESSFUL!=rc)
+-     rtems_fatal_error_occurred(rc);
+- }
+- 
+- void
+- __env_lock(struct _reent *r)
+- {
+-   /* Do lazy init */
+-   if (!envLock)
+-     __rtems_envlock_init();
+-   /*
+-    *  Must not use a semaphore before pre-tasking hook is called.
+-    *  - it will corrupt memory :-(
+-    */
+- 
+-   if (_Thread_Executing)
+-     rtems_semaphore_obtain(envLock, RTEMS_WAIT, RTEMS_NO_TIMEOUT);
+- }
+- 
+- void
+- __env_unlock(struct _reent *r)
+- {
+-   /*
+-    *  Must not use a semaphore before pre-tasking hook is called.
+-    * - it will corrupt memory :-(
+-    */
+-   if (_Thread_Executing)
+-     rtems_semaphore_release(envLock);
+- }
+- #else
+- 
+- /*
+-  *  Reuse the libio mutex -- it is always initialized before we
+-  *  could possibly run.
+-  */
+- 
+- #include <rtems/libio_.h>
+- 
+- void
+- __env_lock(struct _reent *r __attribute__((unused)))
+- {
+-   rtems_libio_lock();
+- }
+- 
+- void
+- __env_unlock(struct _reent *r __attribute__((unused)))
+- {
+-   rtems_libio_unlock();
+- }
+- #endif
+--- 0 ----
+*** cpukit/libcsupport/src/newlibc_locks.c.~1~	2011-07-26 15:10:08.000000000 -0700
+--- cpukit/libcsupport/src/newlibc_locks.c	2011-07-26 15:10:08.000000000 -0700
+***************
+*** 0 ****
+--- 1,222 ----
++ /* $Id$ */
++ 
++ /* Implement newlibc locks used by the library to protect internal
++  * data structures.
++  */
++ 
++ /* Till Straumann <strauman@slac.stanford.edu>, 2007
++  *
++  *  The license and distribution terms for this file may be
++  *  found in the file LICENSE in this distribution or at
++  *  http://www.rtems.com/license/LICENSE.
++  */
++ 
++ /* Follows the implementation of the networking semaphore by Eric Norum */
++ 
++ /* Care has been taken so that this file is only linked if a newlib
++  * facility that needs locking is linked.
++  */
++ 
++ #if HAVE_CONFIG_H
++ #include "config.h"
++ #endif
++ 
++ #if defined(RTEMS_NEWLIB)
++ 
++ #define __RTEMS_VIOLATE_KERNEL_VISIBILITY__
++ #include <rtems.h>
++ #include <rtems/score/coremutex.h>
++ #include <rtems/score/thread.h>
++ #include <rtems/error.h>
++ 
++ #if defined(RTEMS_MULTIPROCESSING)
++ #include <rtems/score/mpci.h>
++ #endif
++ 
++ #include <sys/lock.h>
++ 
++ /* Compile-time options              */
++ 
++ /* debug messages */
++ #define  DEBUG 0
++ /* use one single shared lock; this saves resources but
++  * has the side-effect of e.g., blocking threads calling 'getenv()'
++  * until another thread is done with 'fclose()'.
++  */
++ #undef  NEWLIBC_USE_SHARED_GBL_LOCK
++ 
++ #ifdef DEBUG
++ #include <rtems/bspIo.h>
++ int __rtems_libc_lock_debug = DEBUG;
++ #endif
++ 
++ void __rtems_libc_lock_create_recursive(_LOCK_RECURSIVE_T *plock);
++ 
++ #ifdef NEWLIBC_USE_SHARED_GBL_LOCK
++ static struct __RTEMS_libc_lock_opaque * volatile theGblLock = 0;
++ #endif
++ 
++ /* For reference:
++ typedef struct __RTEMS_libc_lock_opaque * _LOCK_T;
++ typedef _LOCK_T _LOCK_RECURSIVE_T;
++ */
++ 
++ void __rtems_libc_lock_create_recursive(_LOCK_RECURSIVE_T *plock)
++ {
++ rtems_id          id;
++ Objects_Locations loc;
++ Semaphore_Control *l;
++ rtems_status_code st;
++ 
++ 	st = rtems_semaphore_create(
++ 		rtems_build_name('l','i','b','c'),
++ 		1,
++ 		RTEMS_LOCAL
++ 		| RTEMS_PRIORITY
++ 		| RTEMS_BINARY_SEMAPHORE
++ 		| RTEMS_INHERIT_PRIORITY
++ 		| RTEMS_NO_PRIORITY_CEILING
++ 		,
++ 		0,
++ 		&id);
++ 
++ 	if ( st != RTEMS_SUCCESSFUL )
++ 		rtems_panic("__rtems_libc_lock_create_recursive: %s\n", rtems_status_text(st));
++ 	l = _Semaphore_Get( id, &loc );
++ 	_Thread_Enable_dispatch();
++ 
++ #ifdef DEBUG
++ 	if ( __rtems_libc_lock_debug )
++ 		printk("Created Lock %p (TID 0x%08x)\n", l, _Thread_Executing ? _Thread_Executing->Object.id : 0);
++ #endif
++ 	
++ 	*plock = (_LOCK_RECURSIVE_T)l;
++ }
++ 
++ void __rtems_libc_lock_close_recursive(_LOCK_RECURSIVE_T *plock)
++ {
++ Semaphore_Control *l = (Semaphore_Control*)*plock;
++ rtems_status_code st;
++ 
++ #ifdef NEWLIBC_USE_SHARED_GBL_LOCK
++ 	/* don't close the shared lock; this test allows coexistence
++ 	 * of a shared lock and individual locks.
++ 	 */
++ 	if ( l == (Semaphore_Control*)theGblLock ) {
++ 		*plock = 0;
++ 		return;	/* don't close the shared lock */
++ 	}
++ #endif
++ 
++ 	if ( l ) {
++ 		st = rtems_semaphore_delete( l->Object.id );
++ 		if ( RTEMS_SUCCESSFUL != st ) {
++ 			rtems_panic("__rtems_libc_lock_close_recursive: %s\n",rtems_status_text(st));
++ 		}
++ 		*plock = 0;
++ #ifdef DEBUG
++ 		if ( __rtems_libc_lock_debug )
++ 			printk("Deleted Lock %p (TID 0x%08x)\n", l, _Thread_Executing ? _Thread_Executing->Object.id : 0);
++ #endif
++ 	}
++ }
++ 
++ /* do thread-safe lazy init and acquire lock */
++ int __rtems_libc_lock_acquire_recursive(volatile _LOCK_RECURSIVE_T *plock, int wait)
++ {
++ _LOCK_RECURSIVE_T l;
++ ISR_Level         level;
++ CORE_mutex_Status s;
++ 
++ 	if ( ! (l = *plock) ) {
++ 
++ 		/* Lazy init required */
++ 
++ #ifdef NEWLIBC_USE_SHARED_GBL_LOCK
++ 		if ( ! ( l = theGblLock ) )
++ 		/* 1st use of single GBL lock; must create */
++ #endif
++ 		{
++ 			volatile _LOCK_RECURSIVE_T *nplock;
++ #ifdef NEWLIBC_USE_SHARED_GBL_LOCK
++ 			nplock = &theGblLock;
++ #else
++ 			nplock = plock;
++ #endif
++ 			/* create a lock upfront. Then try to register it */
++ 			__rtems_libc_lock_create_recursive( &l );
++ 			_ISR_Disable( level );
++ 			/* still no lock ? */
++ 			if ( 0 == *nplock ) {
++ 				/* register our new lock */
++ 				*nplock  = l;
++ 				_ISR_Enable( level );
++ 			} else {
++ 				/* race condition: someone else registered theirs first */
++ 				_ISR_Enable( level );
++ 				__rtems_libc_lock_close_recursive( &l );
++ 				l = *nplock;
++ 			}
++ 		}
++ #ifdef NEWLIBC_USE_SHARED_GBL_LOCK
++ 		/* At this point 'l == theGblLock' */
++ 		*plock = l;
++ #endif
++ 	}
++ 
++ 	if ( _Thread_Executing ) {
++ #ifdef DEBUG
++ 		if ( __rtems_libc_lock_debug )
++ 			printk("Taking Lock %p (TID 0x%08x)\n", l, _Thread_Executing->Object.id);
++ #endif
++ 		_ISR_Disable( level );
++ 		_CORE_mutex_Seize(
++ 			&((Semaphore_Control *)l)->Core_control.mutex,
++ 			((Semaphore_Control *)l)->Object.id,
++ 			wait ? TRUE : FALSE,
++ 			0, /* other possiblity: (-1 == wait ? 0 : wait) to support timeout but
++ 			    * result checking code below has to be adapted, too.
++ 				*/
++ 			level
++ 			);
++ 		s = _Thread_Executing->Wait.return_code;	
++ 		if ( CORE_MUTEX_STATUS_SUCCESSFUL != s ) {
++ 			if ( CORE_MUTEX_STATUS_UNSATISFIED_NOWAIT != s || wait ) {
++ 				rtems_panic("__rtems_libc_lock_acquire_recursive: status %i\n",s);
++ 			}
++ #ifdef DEBUG
++ 			if ( __rtems_libc_lock_debug )
++ 				printk("Lock %p is busy\n", l);
++ #endif
++ 			return 1;
++ 		}
++ 	}
++ #ifdef DEBUG
++ 	if ( __rtems_libc_lock_debug )
++ 		printk("Obtained Lock %p\n", l);
++ #endif
++ 	return 0;
++ }
++ 
++ void __rtems_libc_lock_release_recursive(_LOCK_RECURSIVE_T *plock)
++ {
++ Semaphore_Control *l = (Semaphore_Control *)*plock;
++ int               i;
++ 
++ #ifdef DEBUG
++ 	if ( __rtems_libc_lock_debug )
++ 		printk("Releasing Lock %p (TID 0x%08x)\n", l, _Thread_Executing ? _Thread_Executing->Object.id : 0);
++ #endif
++ 
++ 	/* Must not use mutex if multithreading is not up yet */
++ 	if ( l && _Thread_Executing ) {
++ 		_Thread_Disable_dispatch();
++ 		i = _CORE_mutex_Surrender( &l->Core_control.mutex, l->Object.id, 0 );
++ 		_Thread_Enable_dispatch();
++ 		if ( i ) {
++ 			rtems_panic("__rtems_libc_lock_release_recursive: failed with %i\n", i);
++ 		}
++ 	}
++ }
++ 
++ #endif /* defined(RTEMS_NEWLIB) */
+*** cpukit/libcsupport/Makefile.am.~1~	2010-07-01 07:39:31.000000000 -0700
+--- cpukit/libcsupport/Makefile.am	2011-07-26 15:12:50.000000000 -0700
+***************
+*** 103,109 ****
+  
+  LIBC_GLUE_C_FILES = src/__getpid.c src/__gettod.c src/__times.c \
+      src/truncate.c src/access.c src/stat.c src/lstat.c src/pathconf.c \
+!     src/newlibc_reent.c src/newlibc_init.c src/newlibc_exit.c \
+      src/kill_noposix.c src/sleep_noposix.c src/utsname.c
+  
+  BSD_LIBC_C_FILES = src/strlcpy.c src/strlcat.c src/issetugid.c
+--- 103,109 ----
+  
+  LIBC_GLUE_C_FILES = src/__getpid.c src/__gettod.c src/__times.c \
+      src/truncate.c src/access.c src/stat.c src/lstat.c src/pathconf.c \
+!     src/newlibc_reent.c src/newlibc_locks.c src/newlibc_init.c src/newlibc_exit.c \
+      src/kill_noposix.c src/sleep_noposix.c src/utsname.c
+  
+  BSD_LIBC_C_FILES = src/strlcpy.c src/strlcat.c src/issetugid.c
+***************
+*** 117,123 ****
+  
+  libcsupport_a_SOURCES += $(LIBC_GLUE_C_FILES) $(PASSWORD_GROUP_C_FILES) \
+      $(TERMINAL_IDENTIFICATION_C_FILES) $(SYSTEM_CALL_C_FILES) \
+!     $(DIRECTORY_SCAN_C_FILES) $(ID_C_FILES) src/envlock.c \
+      $(TERMIOS_C_FILES) src/getpagesize.c src/getrusage.c
+  
+  libcsupport_a_SOURCES += src/flockfile.c src/funlockfile.c src/ftrylockfile.c
+--- 117,123 ----
+  
+  libcsupport_a_SOURCES += $(LIBC_GLUE_C_FILES) $(PASSWORD_GROUP_C_FILES) \
+      $(TERMINAL_IDENTIFICATION_C_FILES) $(SYSTEM_CALL_C_FILES) \
+!     $(DIRECTORY_SCAN_C_FILES) $(ID_C_FILES) \
+      $(TERMIOS_C_FILES) src/getpagesize.c src/getrusage.c
+  
+  libcsupport_a_SOURCES += src/flockfile.c src/funlockfile.c src/ftrylockfile.c
+*** cpukit/sapi/include/confdefs.h.~1~	2011-01-19 06:50:20.000000000 -0800
+--- cpukit/sapi/include/confdefs.h	2011-07-26 15:32:11.000000000 -0700
+***************
+*** 39,44 ****
+--- 39,67 ----
+  #ifndef __CONFIGURATION_TEMPLATE_h
+  #define __CONFIGURATION_TEMPLATE_h
+  
++ #ifdef RTEMS_NEWLIB
++ /*
++  * newlib currently (1.18) uses a maximum of 6 locks for
++  * the following facilities:
++  *
++  * dd_hash (dirent), atexit, environment vars, timezone,
++  * stdio (2 locks)
++  * (individual FILEs are NOT locked).
++  *
++  * NOTE: mlock.c (malloc) is not used by RTEMS.
++  *
++  * The locks are created by 'lazy init' i.e., on the fly
++  * as needed.
++  * If the symbol NEWLIBC_USE_SHARED_GBL_LOCK is defined
++  * in cpukit/libcsupport/src/newlibc_locks.c then only
++  * one single (shared) lock is used for all facilities
++  * (and CONFIGURE_NEWLIB_SEMAPHORES could be reduced to 1)
++  */
++ #define CONFIGURE_NEWLIB_SEMAPHORES                   6
++ #else
++ #define CONFIGURE_NEWLIB_SEMAPHORES                   0
++ #endif
++ 
+  /*
+   * Include the executive's configuration
+   */
+***************
+*** 1143,1149 ****
+  
+    #define CONFIGURE_SEMAPHORES \
+      (CONFIGURE_MAXIMUM_SEMAPHORES + CONFIGURE_LIBIO_SEMAPHORES + \
+!       CONFIGURE_TERMIOS_SEMAPHORES + CONFIGURE_LIBBLOCK_SEMAPHORES)
+  
+    /*
+     * If there are no user or support semaphores defined, then we can assume
+--- 1166,1173 ----
+  
+    #define CONFIGURE_SEMAPHORES \
+      (CONFIGURE_MAXIMUM_SEMAPHORES + CONFIGURE_LIBIO_SEMAPHORES + \
+!      CONFIGURE_NEWLIB_SEMAPHORES + CONFIGURE_TERMIOS_SEMAPHORES + \
+!      CONFIGURE_LIBBLOCK_SEMAPHORES)
+  
+    /*
+     * If there are no user or support semaphores defined, then we can assume
