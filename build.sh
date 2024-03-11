@@ -13,6 +13,7 @@ AUTOMAKE=automake-1.11
 AUTOCONF=autoconf-2.68
 BINUTILS=binutils-2.21.1
 NEWLIB=newlib-1.18.0
+GMP=gmp-4.3.2
 ############################
 
 function error {
@@ -55,23 +56,26 @@ if [ -z "$PREFIX" ]; then
 fi
 mkdir -p "$PREFIX"
 
+export HARCH="linux-$(uname -m)"
+export PATH="$PREFIX/host/$HARCH/bin:$PATH"
+
 if [[ "$ONLY" =~ 'autoconf' ]]; then
     pushd $AUTOCONF
-    ./configure --prefix="$PREFIX"
+    ./configure --prefix="$PREFIX/host/$HARCH"
     make && make install
     popd
 fi
 
 if [[ "$ONLY" =~ 'automake' ]]; then
     pushd $AUTOMAKE
-    ./configure --prefix="$PREFIX"
+    ./configure --prefix="$PREFIX/host/$HARCH"
     make $JOBS && make install
     popd
 fi
 
 if [[ "$ONLY" =~ 'ldep' ]]; then
     pushd ldep
-    ./bootstrap --prefix="$PREFIX"
+    ./bootstrap --prefix="$PREFIX/host/$HARCH"
     make $JOBS && make install
     popd
 fi
@@ -80,17 +84,17 @@ if [[ "$ONLY" =~ 'binutils' ]]; then
     pushd $BINUTILS
 
     mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-cross.ssrl -t powerpc-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-cross.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd
 
     mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-cross.ssrl -t m68k-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-cross.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd
 
     mkdir -p build-i386-rtems && pushd build-i386-rtems
-    ../../../configs/config-cross.ssrl -t i386-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-cross.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd
     
@@ -99,6 +103,9 @@ fi
 
 if [[ "$ONLY" =~ 'gcc' ]]; then
     pushd $GCC > /dev/null
+
+    # Newer GCC defaults to C++14 or higher.
+    export CXXFLAGS=-std=gnu++11
 
     # Apply patches
     if [ ! -f .gcc-patch-marker ] || [ ! -z $FORCEPATCH ]; then
@@ -116,6 +123,9 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
     if [ ! -d mpc ]; then
         ln -s ../$MPC mpc
     fi
+    if [ ! -d gmp ]; then
+        ln -s ../$GMP gmp
+    fi
     if [ ! -d mpfr ]; then
         ln -s ../$MPFR mpfr
     fi
@@ -124,19 +134,21 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
     fi
 
     mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd > /dev/null
 
     mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd > /dev/null
 
     mkdir -p build-i386-rtems && pushd build-i386-rtems > /dev/null
-    ../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h linux-x86_64 -o --enable-werror=no
+    ../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
     make $JOBS && make install
     popd > /dev/null
 
     popd > /dev/null
+
+    export CXXFLAGS=
 fi

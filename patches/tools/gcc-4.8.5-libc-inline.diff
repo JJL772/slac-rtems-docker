@@ -1,0 +1,14 @@
+--- gcc-4.8.5/gcc/cp/cfns.h.orig	2024-03-11 09:59:09.938727219 -0700
++++ gcc-4.8.5/gcc/cp/cfns.h	2024-03-11 09:59:22.531044960 -0700
+@@ -123,9 +123,10 @@
+ }
+ 
+ #ifdef __GNUC__
+-__inline
+ #ifdef __GNUC_STDC_INLINE__
+ __attribute__ ((__gnu_inline__))
++#else
++__inline
+ #endif
+ #endif
+ const char *

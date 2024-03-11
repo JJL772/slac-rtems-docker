@@ -4,7 +4,9 @@
 
 set -e
 
-cd "$(dirname "${BASH_SOURCE[0]}")/rtems"
+TOP="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
+mkdir -p "${TOP}/rtems"
+cd "${TOP}/rtems"
 
 function error {
     echo "$1"
