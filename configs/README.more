@@ -1,0 +1,506 @@
+Building RTEMS 4.10.2
+
+If you want to build gdb (or gcc, binutils, rtems itself or other gnu autoconf packages for rtems)
+then there are utility scripts which help assembling options for 'configure':
+
+For all of these:
+ a) make sure cross-compiler is in PATH
+ b) chdir to source directory of package
+ c) mkdir 'build-<target architecture>'
+ d) chdir to new directory
+ e) invoke config helper script with proper options
+
+The scripts are here: /afs/slac/package/rtems/4.10.2/src/configs
+
+config-rtems.ssrl  -> for building RTEMS
+config-gcc.ssrl    -> for building cross-gcc
+config-cross.ssrl  -> for building other cross packages (binutils, gdb, ...)
+
+all of these are just symlinks to 'config-ssrl.sh' which will do slightly
+different things when invoked under a different name.
+
+The most important options you use are
+ -t <target arch> : target architecture, e.g., powerpc-rtems
+ -b <RTEMS BSPs>  : (only for config-rtems.ssrl) list subset of BSPs you want to build
+                    (-b "bsp1 bsp2")
+ -p <prefix>      : installation prefix
+ -s <version>     : installation version directory
+                    -> the products will be installed under: <prefix>/target/<version>/<target_arch>/
+ -o <extra>       : extra stuff passed to the package's 'configure'
+
+I would like to build the toolchain first and then RTEMS:
+
+I am doing this on a virgin machine in this case:
+Build Host = CentOS Linux release 8.1.1911 (Core)
+Kernel = 4.18.0-147.5.1.el8_1.x86_64 #1 SMP
+
+Now, I tarred up the src directory from "/afs" and copied 
+to my CentOS 8 host machine:
+
+
+
+*************************************************************************************
+"<RTEMS_TOP>src/host"  directory
+Build Order:
+  1  autoconf-2.68
+  2  automake-1.11.1
+  3  ldep
+  4  binutils-2.21.1
+  5  gcc-4.8.5 [script automatically builds: gmp-4.3.2, mpfr-3.0.1, newlib-1.18.0]
+  6  gdb-7.12
+*************************************************************************************
+
+=============================================================================================
+Building ldep
+
+Architecture independent; 
+Shall be built by the host compiler and runs on the host.
+It operates on text files that are generated with the '<cross>-nm' tool (part of binutils).
+
+It requires reasonably recent autoconf/automake (when checked-out from git).
+Thus, it could be that you need autoconf/automake first.
+==============================================================================================
+
+==============================================================================================
+When building gcc-4.8.5:
+gmp, mpfr and newlib are built automatically together with gcc.
+(You only need gmp and/or mpfr if your system doesn't have the
+necessary versions natively).
+For that to happen, create symlinks in the gcc source topdir
+
+<gcc_top>/gmp    -> <gmp_src_top>
+<gcc_top>/mpfr   -> <mpfr_src_top>
+<gcc_top>/newlib -> <newlib_src_top>/newlib     <- note that here you go one level down
+
+For configuring gcc you can use the config-gcc.ssrl helper wrapper
+(or inspect it for relevant configure options).
+===============================================================================================
+
+Once you have the cross-gcc you can build rtems_p3 and then ssrlApps_p2
+
+*************************************************************************************
+  7  rtems_p3
+  8  ssrlApps_p2
+*************************************************************************************
+
+
+After each step above you have to 'make install' and ensure
+that the installation directory is in your 'PATH', of course.
+
+
+
+After building the autoconf tools, we need to put these in the path.
+
+export PATH=$PATH:/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin
+
+
+
+Other questions?
+
+For the autoconf package, you have two build directories
+"build" and "build-aux"  please explain this.
+
+I took a look at your config.log and noticed the "-t" set to powerpc-rtems.
+Why is there a cross target for autoconf?
+
+I also saw --exec-prefix
+--exec-prefix=/afs/slac/package/rtems/4.10.2/host/amd64_linux26
+If I don't specify "--exec-prefix" with the "-o" option, then I get the default of
+i386_linux24
+
+So, I did the following instead:
+
+cd  /usr/local/controlsDev/package/rtems/4.10.2/src/host/autoconf-2.68/build
+
+../../../configs/config-cross.ssrl -p /usr/local/controlsDev/package/rtems/4.10.2 -o --exec-prefix=/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64
+
+make
+make install
+
+Result:
+/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin
+
+ernesto@Quantum  $ pwd
+/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin
+
+ernesto@Quantum  $ ls
+autoconf  autoheader  autom4te  autoreconf  autoscan  autoupdate  ifnames
+
+ernesto@Quantum  $
+
+
+===========================================================================================
+We should use for building binutils:
+===========================================================================================
+cd <RTEMS_TOP>/src/host/binutils-2.21.1
+create build directories for each architecture:
+
+cd  build-powerpc-rtems
+../../../configs/config-cross.ssrl -t powerpc-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make
+make install
+
+cd build-m68k-rtems
+../../../configs/config-cross.ssrl -t m68k-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make
+make install
+
+cd build-i386-rtems
+../../../configs/config-cross.ssrl -t i386-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make 
+make install
+===================================================================================================
+
+Next, we will build gcc.
+Till has already setup the build script to build gcc and bring newlib and friends 
+automatically. So, the bootstrap stage and using "gmp" and "mpfr" is all handled by using:
+config-gcc.ssrl
+
+Since, we will be using the sources provided by Till.  My host system has newer versions
+of gmp and mfpr; so instead I will use the version that Till provided:
+
+cd /usr/local/controlsDev/package/rtems/4.10.2/src/host/gcc-4.8.5
+
+make soft links:
+mpc -> ../mpc-1.0.3
+mpfr -> ../mpfr-3.0.1
+newlib -> ../newlib-1.18.0/newlib
+
+create build directories for each architecture:
+
+cd build-powerpc-rtems
+ernesto@Quantum  $ ../../../configs/config-gcc.ssrl -t powerpc-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make
+make install
+
+
+#ifdef __GNUC__
+#ifdef __GNUC_STDC_INLINE__
+__attribute__ ((__gnu_inline__))
+#else
+__inline
+#endif
+#endif
+const char * libc_name_p (const char *, unsigned int);
+
+
+to avoid having __inline and __gnu_inline__ attribute at the same time (resulting in error redeclared inline with 'gnu_inline' attribute). This worked for me when compiling GCC 5.3 with GCC 9.2. 
+
+Reference:
+https://unix.stackexchange.com/questions/335717/how-to-handle-error-compiling-gcc-4-7-0-using-gcc-6-2-1
+
+
+cd build-m68k-rtems
+$ ../../../configs/config-gcc.ssrl -t m68k-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make
+make install
+
+
+cd build-i386-rtems
+./../../configs/config-gcc.ssrl -t i386-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no
+
+make
+make install
+
+=============================================================================================
+Building GDB:
+
+cd build-powerpc-rtems
+../../../configs/config-cross.ssrl -t powerpc-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no -o CXXFLAGS='-fpermissive'
+
+The following will be generated in config.log:
+
+ernesto@Quantum  $ ../configure --target=powerpc-rtems --disable-nls --prefix=/usr/local/controlsDev/package/rtems/4.10.2/host --exec-prefix=/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64 --mandir=/usr/local/controlsDev/package/rtems/4.10.2/doc/man --infodir=/usr/local/controlsDev/package/rtems/4.10.2/doc/info --enable-werror=no CXXFLAGS='-fpermissive'
+
+make
+
+make install
+
+/usr/local/controlsDev/package/rtems/4.10.2/src/host/gdb-7.12/missing: line 81: makeinfo: command not found
+WARNING: 'makeinfo' is missing on your system.
+         You should only need it if you modified a '.texi' file, or
+         any other file indirectly affecting the aspect of the manual.
+         You might want to install the Texinfo package:
+         <http://www.gnu.org/software/texinfo/>
+         The spurious makeinfo call might also be the consequence of
+         using a buggy 'make' (AIX, DU, IRIX), in which case you might
+         want to install GNU make:
+         <http://www.gnu.org/software/make/>
+
+[root@Quantum ~]# dnf install epel-release
+Last metadata expiration check: 0:39:45 ago on Tue 24 Mar 2020 10:27:21 PM PDT.
+Dependencies resolved.
+================================================================================================================================
+ Package                           Architecture                Version                        Repository                   Size
+================================================================================================================================
+Installing:
+ epel-release                      noarch                      8-8.el8                        extras                       23 k
+
+Transaction Summary
+================================================================================================================================
+Install  1 Package
+
+Total download size: 23 k
+Installed size: 32 k
+Is this ok [y/N]: 
+
+============================
+cd build-m68k-rtems
+../../../configs/config-cross.ssrl -t m68k-rtems  -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no -o CXXFLAGS='-fpermissive'
+
+make
+make install
+
+
+=======================
+cd build-i386-rtems
+../../../configs/config-cross.ssrl -t i386-rtems  -p /usr/local/controlsDev/package/rtems/4.10.2 -h linux-x86_64 -o --enable-werror=no -o CXXFLAGS='-fpermissive'
+
+make
+make install
+
+
+
+
+
+Now let's build rtems:
+cd  /usr/local/controlsDev/package/rtems/4.10.2/src/rtems_p3
+
+cd  build-powerpc-rtems
+../../configs/config-rtems.ssrl -t powerpc-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -v rtems_p3 -h linux-x86_64 -b "beatnik mvme2100 mvme2307 mvme3100 psim svgm"  
+
+This generates:
+$ ../configure --target=powerpc-rtems --enable-cxx --disable-rdbg --prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/powerpc-rtems/ --bindir=/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin --docdir=/usr/local/controlsDev/package/rtems/4.10.2/doc --mandir=/usr/local/controlsDev/package/rtems/4.10.2/doc/man --infodir=/usr/local/controlsDev/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=beatnik mvme2100 mvme2307 mvme3100 psim svgm --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing
+
+
+Original:
+
+$ ../configure --target=powerpc-rtems --enable-cxx --disable-rdbg --prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/powerpc-rtems/ --bindir=/afs/slac/package/rtems/4.10.2/host/amd64_linux26/bin --docdir=/afs/slac/package/rtems/4.10.2/doc --mandir=/afs/slac/package/rtems/4.10.2/doc/man --infodir=/afs/slac/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=beatnik  mvme2100  mvme2307  mvme3100  psim  svgm --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing
+
+make
+make install
+
+
+cd build-m68k-rtems
+../../configs/config-rtems.ssrl -t m68k-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -v rtems_p3 -h linux-x86_64 -b "uC5282"
+
+This generates:
+../configure --target=m68k-rtems --enable-cxx --disable-rdbg --prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/m68k-rtems/ --bindir=/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin --docdir=/usr/local/controlsDev/package/rtems/4.10.2/doc --mandir=/usr/local/controlsDev/package/rtems/4.10.2/doc/man --infodir=/usr/local/controlsDev/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=uC5282 --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing CD2401_IO_MODE=1 CD2401_USE_TERMIOS=1 CONSOLE_MINOR=0 PRINTK_MINOR=0
+
+
+Original:
+../configure --target=m68k-rtems --enable-cxx --disable-rdbg --prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/m68k-rtems/ --bindir=/afs/slac/package/rtems/4.10.2/host/amd64_linux26/bin --docdir=/afs/slac/package/rtems/4.10.2/doc --mandir=/afs/slac/package/rtems/4.10.2/doc/man --infodir=/afs/slac/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=uC5282 --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing CD2401_IO_MODE=1 CD2401_USE_TERMIOS=1 CONSOLE_MINOR=0 PRINTK_MINOR=0
+
+make
+make install
+
+
+
+cd build-i386-rtems
+../../configs/config-rtems.ssrl -t i386-rtems -p /usr/local/controlsDev/package/rtems/4.10.2 -v rtems_p3 -h linux-x86_64 -b "pc586"
+
+This generates:
+../configure --target=i386-rtems --enable-cxx --disable-rdbg --prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/i386-rtems/ --bindir=/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin --docdir=/usr/local/controlsDev/package/rtems/4.10.2/doc --mandir=/usr/local/controlsDev/package/rtems/4.10.2/doc/man --infodir=/usr/local/controlsDev/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=pc586 --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing IDE_USE_SECONDARY_INTERFACE=1
+
+
+
+Original:
+../configure --target=i386-rtems --enable-cxx --disable-rdbg --prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/ --exec-prefix=/afs/slac/package/rtems/4.10.2/target/rtems_p3/i386-rtems/ --bindir=/afs/slac/package/rtems/4.10.2/host/amd64_linux26/bin --docdir=/afs/slac/package/rtems/4.10.2/doc --mandir=/afs/slac/package/rtems/4.10.2/doc/man --infodir=/afs/slac/package/rtems/4.10.2/doc/info --disable-itron --enable-posix --enable-rtemsbsp=pc586 --enable-maintainer-mode RTEMS_CFLAGS=-g -fno-strict-aliasing IDE_USE_SECONDARY_INTERFACE=1
+
+make
+make install
+
+=========================================================================================================================
+
+Now, let's build ssrlApps_p2
+
+First use my host machine version of autoconf and friends.
+Running the bootstap twice or trying to rerun autoreconf fails 
+So, I am user autoconf from my system
+export PATH=$PATH:/usr/local/controlsDev/package/rtems/4.10.2/host/linux-x86_64/bin
+
+cd build
+../configure --enable-maintainer-mode --with-rtems-top=/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3 --with-package-subdir=target/rtems_p3/ssrlApps_p2 --prefix=/usr/local/controlsDev/package/rtems/4.10.2
+
+
+Original:
+../configure --enable-maintainer-mode --with-rtems-top=/afs/slac/package/rtems/4.10.2/target/rtems_p3 --with-package-subdir=target/rtems_p3/ssrlApps_p2 --prefix=/afs/slac/package/rtems/4.10.2/
+
+make
+make install
+
+
+Fails:
+LD_LIBRARY_PATH
+
+i386-rtems-gcc -B/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/i386-rtems/pc586/lib/ -specs bsp_specs -qrtems  -march=pentium  -I/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/i386-rtems/pc586/lib/include -I/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586/data/include -DHAVE_CONFIG_H -I. -I../..//..//../svgmWatchdog -I..  -Wall -I../..//..//../svgmWatchdog/wrap -O2 -DTARGET -I../data/include -I/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586/data/include -Wall -g -O2 -MT watchdog.modini.o -MD -MP -MF .deps/watchdog.modini.Tpo -c -o watchdog.modini.o ../..//..//../svgmWatchdog/watchdog.modini.c
+mv -f .deps/watchdog.modini.Tpo .deps/watchdog.modini.Po
+i386-rtems-gcc -B/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/i386-rtems/pc586/lib/ -specs bsp_specs -qrtems  -march=pentium  -I/usr/local/controlsDev/package/rtems/4.10.2/target/rtems_p3/i386-rtems/pc586/lib/include -I/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586/data/include -nostdlib -Wl,-r -o watchdog.obj watchdog.modini.o wd.o bsp_smic.o 
+gcc -c -O2 -DPACKAGE_VERSION='"ssrlApps_rtems4.10.2_p3_slac_p2"' -o wdclnt.o -I. -I.. -I.. -I../..//..//../svgmWatchdog/wrap ../..//..//../svgmWatchdog/wdclnt.c
+../..//..//../svgmWatchdog/wdclnt.c:4:10: fatal error: rpc/rpc.h: No such file or directory
+ #include <rpc/rpc.h>
+          ^~~~~~~~~~~
+compilation terminated.
+make[8]: *** [Makefile:737: wdclnt.o] Error 1
+make[8]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586/svgmWatchdog'
+make[7]: *** [Makefile:334: install-recursive] Error 1
+make[7]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586'
+make[6]: *** [Makefile:767: all-local] Error 2
+make[6]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586'
+make[5]: *** [Makefile:334: all-recursive] Error 1
+make[5]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586'
+make[4]: *** [Makefile:270: all] Error 2
+make[4]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems/pc586'
+make[3]: *** [makefile:334: all-recursive] Error 1
+make[3]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems'
+make[2]: *** [makefile:270: all] Error 2
+make[2]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build/i386-rtems'
+make[1]: *** [makefile:334: all-recursive] Error 1
+make[1]: Leaving directory '/usr/local/controlsDev/package/rtems/4.10.2/src/ssrlApps_p2/build'
+make: *** [makefile:270: all] Error 2
+ernesto@Quantum  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2)) $
+
+
+[root@Quantum ~]# dnf install "libtirpc*"
+CentOS-8 - AppStream                                                                            8.4 kB/s | 4.3 kB     00:00    
+CentOS-8 - Base                                                                                 9.3 kB/s | 3.8 kB     00:00    
+CentOS-8 - Extras                                                                               4.6 kB/s | 1.5 kB     00:00    
+CentOS-8 - PowerTools                                                                            15 kB/s | 4.3 kB     00:00    
+Extra Packages for Enterprise Linux Modular 8 - x86_64                                           92 kB/s |  18 kB     00:00    
+Extra Packages for Enterprise Linux 8 - x86_64                                                   31 kB/s |  11 kB     00:00    
+Package libtirpc-1.1.4-4.el8.x86_64 is already installed.
+Dependencies resolved.
+================================================================================================================================
+ Package                            Architecture               Version                         Repository                  Size
+================================================================================================================================
+Installing:
+ libtirpc-devel                     x86_64                     1.1.4-4.el8                     BaseOS                     127 k
+
+Transaction Summary
+================================================================================================================================
+Install  1 Package
+
+Total download size: 127 k
+Installed size: 251 k
+Is this ok [y/N]: 
+Downloading Packages:
+libtirpc-devel-1.1.4-4.el8.x86_64.rpm                                                           196 kB/s | 127 kB     00:00    
+--------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                           139 kB/s | 127 kB     00:00     
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                                                                        1/1 
+  Installing       : libtirpc-devel-1.1.4-4.el8.x86_64                                                                      1/1 
+  Running scriptlet: libtirpc-devel-1.1.4-4.el8.x86_64                                                                      1/1 
+  Verifying        : libtirpc-devel-1.1.4-4.el8.x86_64                                                                      1/1 
+
+Installed:
+  libtirpc-devel-1.1.4-4.el8.x86_64                                                                                             
+
+Complete!
+[root@Quantum ~]# 
+
+glibc bundles an implementation of Sun RPC (including XDR support, on which Sun RPC is based). This implementation is not compatible with IPv6, and due to the way addresses are represented, adding IPv6 support would need an ABI bump. As a result, upstream decided to move Sun RPC support to a separate library, libtirpc, which has been packaged since Fedora 7. 
+
+
+ernesto@Quantum  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2)) $ ls /usr/include/tirpc/rpc
+auth_des.h   clnt.h       des.h        pmap_prot.h  rpcb_prot.h  rpc.h           svc_auth.h  svc_soc.h
+auth_gss.h   clnt_soc.h   key_prot.h   pmap_rmt.h   rpcb_prot.x  rpc_msg.h       svc_dg.h    types.h
+auth.h       clnt_stat.h  nettype.h    raw.h        rpc_com.h    rpcsec_gss.h    svc.h       xdr.h
+auth_unix.h  des_crypt.h  pmap_clnt.h  rpcb_clnt.h  rpcent.h     svc_auth_gss.h  svc_mt.h
+ernesto@Quantum  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2)) $ 
+
+ I have updated the steps.  
+I also re-ran the tests on both MVME6100 and MVME3100.
+Will test on the coldfire as well.
+
+
+Releasing a tagged version of ssrlApps via GIT
+[1] cd <RTEMS_TOP>/src,  where for example, RTEMS_TOP=/afs/slac/package/rtems/4.10.2
+
+[2] Clone the ssrlApps module into a new directory named to reflect the next version; such as "ssrlApps_p2"
+     git clone --progress https://github.com/till-s/rtems-ssrlApps ssrlApps_p2
+     
+[3] Change directory to newly cloned software
+    cd <RTEMS_TOP>/src/<ssrlApps_<SSRLAPPS_PATCH_LEVEL>,  where SSRLAPPS_PATCH_LEVEL could be such as p1, p2, p3, ...
+    example,  cd /afs/slac/package/rtems/4.10.2/src/ssrlApps_p2
+   
+[4] Recursively update all of the associated submodules
+    git submodule update --init --recursive
+   
+[5] Now, let's pull of the tags in so that we can select which tag to checkout later; list all of the tags as well:
+    git fetch --all --tags
+    git ls-remote --tags
+   
+[6] Now, we checkout the official tagged release corresponding to this version: There is a tagging convention as well.    
+    git checkout ssrlApps_rtems<RTEMS_VERSION>_<PATCH_LEVEL>_slac_<SSRLAPPS_PATCH_LEVEL>
+    example, git checkout ssrlApps_rtems4.10.2_p3_slac_p2
+   
+[7]  Need to update the submodules again after switching branches or tags on the supermodule.
+     git submodule update --recursive
+
+[8] Set the path to the RTEMS toolchain, which includes the GNU autoconf tools as well.
+    In our case, the tool chain is here:
+    export PATH=/afs/slac/package/rtems/4.10.2/host/amd64_linux26/bin/:$PATH
+   
+[9] Bootstrap stage for configure
+    ./bootstrap
+   
+[10] Let's build but not clobber the source tree:
+    mkdir build
+    cd build
+   
+[11] Let's run the configure stage: Example, below:
+     ../configure --enable-maintainer-mode \
+     --with-rtems-top=/afs/slac/package/rtems/4.10.2/target/rtems_p3 \
+     --with-package-subdir=target/rtems_p3/ssrlApps_p2 \
+     --prefix=/afs/slac/package/rtems/4.10.2/
+   
+[12] Compile/build
+     make
+     
+[13] Install
+     make install
+   
+We should now see the installation located such as:
+  /afs/slac/package/rtems/4.10.2/target/rtems_p3/ssrlApps_p2
+
+[14]  Show production release tag:
+      cd /afs/slac/package/rtems/4.10.2/src/ssrlApps_p2
+      git describe --tag
+      git show <TAG>
+     
+Example, to show annotated tag info:
+ernesto@aird-pc90626  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2)) $ git describe --tag
+ssrlApps_rtems4.10.2_p3_slac_p2
+ernesto@aird-pc90626  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2)) $ git show ssrlApps_rtems4.10.2_p3_slac_p2
+tag ssrlApps_rtems4.10.2_p3_slac_p2
+Tagger: till straumann <till.straumann@alumni.tu-berlin.de>
+Date:   Fri Feb 28 11:09:26 2020 +0100
+
+Added RTEMSS barriers to system/config.c
+
+commit 198545b4315a6db82ba6e03b81ef67b7f6f45177 (HEAD, tag: ssrlApps_rtems4.10.2_p3_slac_p2, origin/ssrlApps_rtems-4.10_backport_from_cvs)
+Author: till straumann <till.straumann@alumni.tu-berlin.de>
+Date:   Fri Feb 28 10:24:40 2020 +0100
+
+    merged system: add_barriers branch
+
+diff --git a/system b/system
+index a2cc980..5edf1b5 160000
+--- a/system
++++ b/system
+@@ -1 +1 @@
+-Subproject commit a2cc980ec5d4336fa719b41c73495d43c735507a
++Subproject commit 5edf1b55ad6933f185daaac3a1b33a9cb21f340d
+ernesto@aird-pc90626  ((HEAD detached at ssrlApps_rtems4.10.2_p3_slac_p2))
+==========================================================================================================================
+
