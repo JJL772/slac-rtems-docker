@@ -41,10 +41,11 @@ get_gnu "https://ftp.gnu.org/gnu/automake" "automake-1.11"
 get_gnu "https://ftp.gnu.org/gnu/binutils" "binutils-2.21.1" "tar.bz2"
 get_gnu "https://ftp.gnu.org/gnu/gcc/gcc-4.8.5" "gcc-4.8.5" "tar.bz2"
 get_gnu "https://ftp.gnu.org/gnu/gmp" "gmp-4.3.2"
-get_gnu "https://ftp.gnu.org/gnu/gdb" "gdb-7.12"
+get_gnu "https://ftp.gnu.org/gnu/gdb" "gdb-8.0"
 get_gnu "https://ftp.gnu.org/gnu/mpc" "mpc-1.0.3"
 get_gnu "https://ftp.gnu.org/gnu/mpfr" "mpfr-3.0.1"
 get_gnu "http://sourceware.org/pub/newlib" "newlib-1.18.0"
+get_gnu "https://ftp.gnu.org/gnu/texinfo" "texinfo-5.0"
 
 if [ ! -d ldep ] || [ $FORCE -gt 0 ]; then
     rm -rf ldep
