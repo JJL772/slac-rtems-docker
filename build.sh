@@ -23,7 +23,7 @@ function error {
     exit 1
 }
 
-ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr"
+ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr texinfo"
 JOBS=-j$(nproc)
 while test $# -gt 0; do
     case $1 in
