@@ -1,0 +1,34 @@
+name: Publish Container
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  build_containers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        version: ['4.10.2']
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Container
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          file: ./Dockerfile
+          tags: ghcr.io/jjl772/slac-rtems:${{ matrix.version }}
+          context: .
+          build-args: |
+            RTEMS_VER=${{ matrix.version }}
