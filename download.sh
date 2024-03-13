@@ -49,7 +49,7 @@ get_gnu "https://ftp.gnu.org/gnu/texinfo" "texinfo-5.0"
 
 if [ ! -d ldep ] || [ $FORCE -gt 0 ]; then
     rm -rf ldep
-    git clone git@github.com:till-s/ldep
+    git clone https://github.com/till-s/ldep
 fi
 
 echo "All packages downloaded successfully"
