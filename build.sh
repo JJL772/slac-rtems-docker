@@ -4,26 +4,18 @@ set -e
 TOP="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 cd "$TOP/rtems"
 
-############################
-# Package versions
-MPFR=mpfr-3.0.1
-MPC=mpc-1.0.3
-GCC=gcc-4.8.5
-AUTOMAKE=automake-1.11
-AUTOCONF=autoconf-2.68
-BINUTILS=binutils-2.21.1
-NEWLIB=newlib-1.18.0
-GMP=gmp-4.3.2
-GDB=gdb-8.0
-TEXINFO=texinfo-5.0
-############################
+. "$TOP/versions.sh"
 
 function error {
     echo "$1"
     exit 1
 }
 
-ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr texinfo"
+# Adjust to your heart's desire, but this is all that SLAC uses (as of March '24)
+PPC_BSPS='beatnik mvme3100'
+M68K_BSPS='uC5282'
+
+ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr texinfo rtems ssrlApps"
 JOBS=-j$(nproc)
 while test $# -gt 0; do
     case $1 in
@@ -65,6 +57,12 @@ if [[ "$ONLY" =~ 'autoconf' ]]; then
     pushd $AUTOCONF > /dev/null
     ./configure --prefix="$PREFIX/host/$HARCH"
     make && make install
+
+    # Symlink exact version of autoconf
+    cd "$PREFIX/host/$HARCH/bin"
+    rm -fv $AUTOCONF
+    ln -s autoconf $AUTOCONF
+    
     popd > /dev/null
 fi
 
@@ -72,6 +70,12 @@ if [[ "$ONLY" =~ 'automake' ]]; then
     pushd $AUTOMAKE > /dev/null
     ./configure --prefix="$PREFIX/host/$HARCH"
     make $JOBS && make install
+
+    # Yet another symlink
+    cd "$PREFIX/host/$HARCH/bin"
+    rm -fv automake-1.11.1
+    ln -s automake automake-1.11.1
+    
     popd > /dev/null
 fi
 
@@ -125,12 +129,28 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
         pushd .. > /dev/null
         for p in $TOP/patches/tools/gcc*.diff; do
             echo "Applying `basename $p`"
-            patch -p0 --posix --verbose < "$p"
+            patch -p0 -N --posix --verbose < "$p"
         done
         echo "Done applying patches"
         popd > /dev/null
         touch .gcc-patch-marker
     fi
+
+    # Apply patches to newlib
+    pushd $TOP/rtems/$NEWLIB > /dev/null
+    if [ ! -f .newlib-patch-marker ] || [ ! -z $FORCEPATH ]; then
+        # HACK: For some reason I'm getting 'too many open files' when applying newlib patches... :(
+        _OLDLIMIT=`ulimit -n`
+        ulimit -n 8192
+        for p in $TOP/patches/tools/newlib*.diff; do
+            echo "Applying `basename $p`"
+            patch -p1 -N --verbose < "$p"
+        done
+        echo "Applied all patches to $NEWLIB"
+        touch .newlib-patch-marker
+        ulimit -n $_OLDLIMIT
+    fi
+    popd > /dev/null
 
     # Setup symlinks to our MPC, MPFR and newlib. GCC will build these for us
     if [ ! -d mpc ]; then
@@ -146,22 +166,26 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
         ln -s ../$NEWLIB/newlib newlib
     fi
 
+    # Specify a package version to identify our GCC build
+    COMMON_GCC_ARGS="-o --with-pkgversion=SLAC-RTEMS-$GCC-$(date "+%Y.%m.%d")"
+
     mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+    ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
     make $JOBS
     make install
     popd > /dev/null
 
     mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+    ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
     make $JOBS
     make install
     popd > /dev/null
 
-    mkdir -p build-i386-rtems && pushd build-i386-rtems > /dev/null
-    ../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
-    make $JOBS
-    make install
+    # !!! i386 support not needed right now
+    #mkdir -p build-i386-rtems && pushd build-i386-rtems > /dev/null
+    #../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+    #make $JOBS
+    #make install
     popd > /dev/null
 
     popd > /dev/null
@@ -189,14 +213,62 @@ if [[ "$ONLY" =~ 'gdb' ]]; then
     make install
     popd > /dev/null
 
-    mkdir -p build-i386-rtems && pushd build-i386-rtems
-    ../../../configs/config-cross.ssrl -t i386-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
+    # !!! i386 support not needed right now
+    #mkdir -p build-i386-rtems && pushd build-i386-rtems
+    #../../../configs/config-cross.ssrl -t i386-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
+    #make $JOBS
+    #make install
+    #popd > /dev/null
+
+    export CFLAGS=
+    export CXXFLAGS=
+
+    popd > /dev/null
+fi
+
+if [[ "$ONLY" =~ 'rtems' ]]; then
+    pushd $RTEMS > /dev/null
+
+    ./bootstrap
+
+    mkdir -p build-powerpc && pushd build-powerpc > /dev/null
+    echo "-- config-rtems.ssrl"
+    ../../../configs/config-rtems.ssrl -t powerpc-rtems -p "$PREFIX" -v $RTEMS -b "$PPC_BSPS"
+    echo "-- make && make install"
     make $JOBS
     make install
     popd > /dev/null
 
-    export CFLAGS=
-    export CXXFLAGS=
+    mkdir -p build-m68k && pushd build-m68k > /dev/null
+    echo "-- config-rtems.ssrl"
+    ../../../configs/config-rtems.ssrl -s .. -t m68k-rtems -p "$PREFIX" -v $RTEMS -b "$M68K_BSPS"
+    echo "-- make && make install"
+    make $JOBS
+    make install
+    popd > /dev/null
+
+    popd > /dev/null
+fi
+
+if [[ "$ONLY" =~ 'ssrlApps' ]]; then
+    pushd $SSRLAPPS > /dev/null
+
+    ./bootstrap
+
+    mkdir -p build-powerpc && pushd build-powerpc > /dev/null
+    ../configure --prefix="$PREFIX" --enable-rtemsbsp="$PPC_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
+    make #$JOBS
+    make install
+    popd > /dev/null
+
+    mkdir -p build-m68k && pushd build-m68k > /dev/null
+    ../configure --prefix="$PREFIX" --enable-rtemsbsp="$M68K_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
+    make $JOBS
+    make install
+    popd > /dev/null
+
+    # layout should be target/rtems_p3   target/ssrlApps
+    ln -s "$PREFIX/target/$RTEMS/$SSRLAPPS" "$PREFIX/target/ssrlApps"
 
     popd > /dev/null
 fi

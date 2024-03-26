@@ -51,7 +51,7 @@ case "`basename $0`" in
 	;;
 	config-gcc.ssrl)
 #gcc4 offers only f95 -- but this needs gmp with MPFR support :-(; --> no fortran for now TS 2005/10/17
-		$TOOLPATH/configure --target=$TARGET --prefix=$PREFIX/host --exec-prefix=$PREFIX/host/$TOOLHOSTARCH --mandir=$PREFIX/doc/man --infodir=$PREFIX/doc/info --enable-languages=c,c++${EXTRALANGS} --with-gnu-as --with-gnu-ld --with-newlib --verbose --with-system-zlib --disable-nls --enable-version-specific-runtime-libs --enable-threads=rtems $EXTRAOPTS
+		$TOOLPATH/configure --target=$TARGET --prefix=$PREFIX/host/$TOOLHOSTARCH --exec-prefix=$PREFIX/host/$TOOLHOSTARCH --mandir=$PREFIX/doc/man --infodir=$PREFIX/doc/info --enable-languages=c,c++${EXTRALANGS} --with-gnu-as --with-gnu-ld --with-newlib --verbose --with-system-zlib --disable-nls --enable-version-specific-runtime-libs --enable-threads=rtems $EXTRAOPTS
 	;;
 	config-grub.ssrl)
 		$TOOLPATH/configure --enable-3c509 --enable-ne --enable-wd --enable-eepro100 --enable-3c90x --enable-tulip --prefix=$PREFIX/host --exec-prefix=$PREFIX/host/$TOOLHOSTARCH --mandir=$PREFIX/doc/man --infodir=$PREFIX/doc/info $EXTRAOPTS

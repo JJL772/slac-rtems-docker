@@ -8,6 +8,8 @@ TOP="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 mkdir -p "${TOP}/rtems"
 cd "${TOP}/rtems"
 
+. "$TOP/versions.sh"
+
 function error {
     echo "$1"
     exit 1
@@ -36,20 +38,30 @@ function get_gnu {
     fi
 }
 
-get_gnu "https://ftp.gnu.org/gnu/autoconf" "autoconf-2.68"
-get_gnu "https://ftp.gnu.org/gnu/automake" "automake-1.11"
-get_gnu "https://ftp.gnu.org/gnu/binutils" "binutils-2.21.1" "tar.bz2"
-get_gnu "https://ftp.gnu.org/gnu/gcc/gcc-4.8.5" "gcc-4.8.5" "tar.bz2"
-get_gnu "https://ftp.gnu.org/gnu/gmp" "gmp-4.3.2"
-get_gnu "https://ftp.gnu.org/gnu/gdb" "gdb-8.0"
-get_gnu "https://ftp.gnu.org/gnu/mpc" "mpc-1.0.3"
-get_gnu "https://ftp.gnu.org/gnu/mpfr" "mpfr-3.0.1"
-get_gnu "http://sourceware.org/pub/newlib" "newlib-1.18.0"
-get_gnu "https://ftp.gnu.org/gnu/texinfo" "texinfo-5.0"
+get_gnu "https://ftp.gnu.org/gnu/autoconf" "$AUTOCONF"
+get_gnu "https://ftp.gnu.org/gnu/automake" "$AUTOMAKE"
+get_gnu "https://ftp.gnu.org/gnu/binutils" "$BINUTILS" "tar.bz2"
+get_gnu "https://ftp.gnu.org/gnu/gcc/gcc-4.8.5" "$GCC" "tar.bz2"
+get_gnu "https://ftp.gnu.org/gnu/gmp" "$GMP"
+get_gnu "https://ftp.gnu.org/gnu/gdb" "$GDB"
+get_gnu "https://ftp.gnu.org/gnu/mpc" "$MPC"
+get_gnu "https://ftp.gnu.org/gnu/mpfr" "$MPFR"
+get_gnu "http://sourceware.org/pub/newlib" "$NEWLIB"
+get_gnu "https://ftp.gnu.org/gnu/texinfo" "$TEXINFO"
 
 if [ ! -d ldep ] || [ $FORCE -gt 0 ]; then
     rm -rf ldep
     git clone https://github.com/till-s/ldep
+fi
+
+if [ ! -d $RTEMS ] || [ $FORCE -gt 0 ]; then
+    rm -rf $RTEMS
+    git clone --recursive -b "$RTEMS_BRANCH" https://github.com/slaclab/rtems.git $RTEMS
+fi
+
+if [ ! -d $SSRLAPPS ] || [ $FORCE -gt 0 ]; then
+    rm -rf $SSRLAPPS
+    git clone --recursive -b "$SSRLAPPS_BRANCH" https://github.com/till-s/rtems-ssrlApps.git $SSRLAPPS
 fi
 
 echo "All packages downloaded successfully"
