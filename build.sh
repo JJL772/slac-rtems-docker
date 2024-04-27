@@ -140,7 +140,9 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
         pushd .. > /dev/null
         for p in $TOP/patches/tools/gcc*.diff; do
             echo "Applying `basename $p`"
-            patch -p0 -N --posix --verbose < "$p"
+            if ! patch -p0 -N --posix --verbose < "$p"; then
+                [ $PIPESTATUS -gt 1 ] && exit 1
+            fi
         done
         echo "Done applying patches"
         popd > /dev/null
@@ -149,17 +151,26 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
 
     # Apply patches to newlib
     pushd $TOP/rtems/$NEWLIB > /dev/null
-    if [ ! -f .newlib-patch-marker ] || [ ! -z $FORCEPATH ]; then
-        # HACK: For some reason I'm getting 'too many open files' when applying newlib patches... :(
+    if [ ! -f .newlib-patch-marker ] || [ ! -z $FORCEPATCH ]; then
+        # HACK: For some reason I'm getting 'too many open files' when applying newlib patches :(
+        # Doesn't happenin GHA because the default limit is 64k in there
         _OLDLIMIT=`ulimit -n`
-        ulimit -n 8192
+        if [ $_OLDLIMIT -lt 8192 ]; then
+            ulimit -n 8192
+        fi
+        
         for p in $TOP/patches/tools/newlib*.diff; do
             echo "Applying `basename $p`"
-            patch -p1 -N --verbose < "$p"
+            if ! patch -p1 -N --verbose < "$p"; then
+                [ $PIPESTATUS -gt 1 ] && exit 1
+            fi
         done
         echo "Applied all patches to $NEWLIB"
         touch .newlib-patch-marker
-        ulimit -n $_OLDLIMIT
+        
+        if [ $_OLDLIMIT -lt 8192 ]; then
+            ulimit -n $_OLDLIMIT
+        fi
     fi
     popd > /dev/null
 
