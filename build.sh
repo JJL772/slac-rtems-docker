@@ -14,6 +14,7 @@ function error {
 # Adjust to your heart's desire, but this is all that SLAC uses (as of March '24)
 PPC_BSPS='beatnik mvme3100'
 M68K_BSPS='uC5282'
+ARCHES='m68k powerpc i386'
 
 ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr texinfo rtems ssrlApps"
 JOBS=-j$(nproc)
@@ -38,6 +39,10 @@ while test $# -gt 0; do
     --jobs)
         JOBS=-j$2
         shift
+        ;;
+    --arches|-a)
+        ARCHES=$2
+        shift 2
         ;;
     *)
         error "Unknown arg"
@@ -97,23 +102,29 @@ fi
 if [[ "$ONLY" =~ 'binutils' ]]; then
     pushd $BINUTILS
 
-    mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-cross.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
-    make $JOBS
-    make install
-    popd
+    if [[ "$ARCHES" =~ 'powerpc' ]]; then
+        mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
+        ../../../configs/config-cross.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+        make $JOBS
+        make install
+        popd
+    fi
 
-    mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-cross.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
-    make $JOBS
-    make install
-    popd
+    if [[ "$ARCHES" =~ 'm68k' ]]; then
+        mkdir -p build-m68k-rtems && pushd build-m68k-rtems
+        ../../../configs/config-cross.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+        make $JOBS
+        make install
+        popd
+    fi
 
-    mkdir -p build-i386-rtems && pushd build-i386-rtems
-    ../../../configs/config-cross.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
-    make $JOBS
-    make install
-    popd
+    if [[ "$ARCHES" =~ 'i386' ]]; then
+        mkdir -p build-i386-rtems && pushd build-i386-rtems
+        ../../../configs/config-cross.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+           make $JOBS
+        make install
+        popd
+    fi
     
     popd
 fi
@@ -169,24 +180,29 @@ if [[ "$ONLY" =~ 'gcc' ]]; then
     # Specify a package version to identify our GCC build
     COMMON_GCC_ARGS="-o --with-pkgversion=SLAC-RTEMS-$GCC-$(date "+%Y.%m.%d")"
 
-    mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'powerpc' ]]; then
+        mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
+        ../../../configs/config-gcc.ssrl -t powerpc-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'm68k' ]]; then
+        mkdir -p build-m68k-rtems && pushd build-m68k-rtems
+        ../../../configs/config-gcc.ssrl -t m68k-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no "$COMMON_GCC_ARGS"
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    # !!! i386 support not needed right now
-    #mkdir -p build-i386-rtems && pushd build-i386-rtems > /dev/null
-    #../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
-    #make $JOBS
-    #make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'i386' ]]; then
+        mkdir -p build-i386-rtems && pushd build-i386-rtems > /dev/null
+        ../../../configs/config-gcc.ssrl -t i386-rtems -p "$PREFIX" -h $HARCH -o --enable-werror=no
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
     popd > /dev/null
 
@@ -201,24 +217,29 @@ if [[ "$ONLY" =~ 'gdb' ]]; then
     export CFLAGS="-fcommon"
     export CXXFLAGS="-fcommon -fpermissive"
 
-    mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
-    ../../../configs/config-cross.ssrl -t powerpc-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'powerpc' ]]; then
+        mkdir -p build-powerpc-rtems && pushd build-powerpc-rtems
+        ../../../configs/config-cross.ssrl -t powerpc-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    mkdir -p build-m68k-rtems && pushd build-m68k-rtems
-    ../../../configs/config-cross.ssrl -t m68k-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'm68k' ]]; then
+        mkdir -p build-m68k-rtems && pushd build-m68k-rtems
+        ../../../configs/config-cross.ssrl -t m68k-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    # !!! i386 support not needed right now
-    #mkdir -p build-i386-rtems && pushd build-i386-rtems
-    #../../../configs/config-cross.ssrl -t i386-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
-    #make $JOBS
-    #make install
-    #popd > /dev/null
+    if [[ "$ARCHES" =~ 'i386' ]]; then
+        mkdir -p build-i386-rtems && pushd build-i386-rtems
+        ../../../configs/config-cross.ssrl -t i386-rtems  -p "$PREFIX" -h $HARCH -o --enable-werror=no -o --with-python=no
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
     export CFLAGS=
     export CXXFLAGS=
@@ -227,45 +248,55 @@ if [[ "$ONLY" =~ 'gdb' ]]; then
 fi
 
 if [[ "$ONLY" =~ 'rtems' ]]; then
+    echo "Building RTEMS"
     pushd $RTEMS > /dev/null
 
     ./bootstrap
 
-    mkdir -p build-powerpc && pushd build-powerpc > /dev/null
-    echo "-- config-rtems.ssrl"
-    ../../../configs/config-rtems.ssrl -t powerpc-rtems -p "$PREFIX" -v $RTEMS -b "$PPC_BSPS"
-    echo "-- make && make install"
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'powerpc' ]]; then
+        mkdir -p build-powerpc && pushd build-powerpc > /dev/null
+        echo "-- config-rtems.ssrl"
+        ../../../configs/config-rtems.ssrl -t powerpc-rtems -p "$PREFIX" -v $RTEMS -b "$PPC_BSPS"
+        echo "-- make && make install"
+        make #$JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    mkdir -p build-m68k && pushd build-m68k > /dev/null
-    echo "-- config-rtems.ssrl"
-    ../../../configs/config-rtems.ssrl -s .. -t m68k-rtems -p "$PREFIX" -v $RTEMS -b "$M68K_BSPS"
-    echo "-- make && make install"
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'm68k' ]]; then
+        mkdir -p build-m68k && pushd build-m68k > /dev/null
+        echo "-- config-rtems.ssrl"
+        ../../../configs/config-rtems.ssrl -s .. -t m68k-rtems -p "$PREFIX" -v $RTEMS -b "$M68K_BSPS"
+        echo "-- make && make install"
+        make #$JOBS
+        make install
+        popd > /dev/null
+    fi
 
     popd > /dev/null
 fi
 
 if [[ "$ONLY" =~ 'ssrlApps' ]]; then
+    echo "Building ssrlApps"
     pushd $SSRLAPPS > /dev/null
 
     ./bootstrap
 
-    mkdir -p build-powerpc && pushd build-powerpc > /dev/null
-    ../configure --prefix="$PREFIX" --enable-rtemsbsp="$PPC_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
-    make #$JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'powerpc' ]]; then
+        mkdir -p build-powerpc && pushd build-powerpc > /dev/null
+        ../configure --prefix="$PREFIX" --enable-rtemsbsp="$PPC_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
+        make #$JOBS
+        make install
+        popd > /dev/null
+    fi
 
-    mkdir -p build-m68k && pushd build-m68k > /dev/null
-    ../configure --prefix="$PREFIX" --enable-rtemsbsp="$M68K_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
-    make $JOBS
-    make install
-    popd > /dev/null
+    if [[ "$ARCHES" =~ 'm68k' ]]; then
+        mkdir -p build-m68k && pushd build-m68k > /dev/null
+        ../configure --prefix="$PREFIX" --enable-rtemsbsp="$M68K_BSPS" --with-rtems-top="$PREFIX/target/$RTEMS" --with-package-subdir="target/$RTEMS/$SSRLAPPS"
+        make $JOBS
+        make install
+        popd > /dev/null
+    fi
 
     # layout should be target/rtems_p3   target/ssrlApps
     ln -s "$PREFIX/target/$RTEMS/$SSRLAPPS" "$PREFIX/target/ssrlApps"

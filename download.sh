@@ -56,7 +56,7 @@ fi
 
 if [ ! -d $RTEMS ] || [ $FORCE -gt 0 ]; then
     rm -rf $RTEMS
-    git clone --recursive -b "$RTEMS_BRANCH" https://github.com/slaclab/rtems.git $RTEMS
+    git clone --recursive -b "$RTEMS_BRANCH" git@github.com:slaclab/rtems.git $RTEMS
 fi
 
 if [ ! -d $SSRLAPPS ] || [ $FORCE -gt 0 ]; then

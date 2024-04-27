@@ -15,6 +15,6 @@ RUN mkdir -p /sdf/sw/epics/package/rtems/${RTEMS_VER}
 RUN cd /build && ./download.sh
 
 ARG RTEMS_VER=4.10.2
-RUN cd /build && ./build.sh --prefix /sdf/sw/epics/package/rtems/${RTEMS_VER}
+RUN cd /build && ./build.sh --prefix /sdf/sw/epics/package/rtems/${RTEMS_VER} --arches "powerpc m68k"
 
 RUN rm -rf /build
