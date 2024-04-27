@@ -56,7 +56,11 @@ fi
 
 if [ ! -d $RTEMS ] || [ $FORCE -gt 0 ]; then
     rm -rf $RTEMS
-    git clone --recursive -b "$RTEMS_BRANCH" git@github.com:slaclab/rtems.git $RTEMS
+    #git clone --recursive -b "$RTEMS_BRANCH" git@github.com:slaclab/rtems.git $RTEMS
+
+    # STUPID FREAKING HACK: GitHub deploy keys don't work for private submodules, so the svgm BSP submodule fails to check out. I don't think we need it though.
+    #  This has been an issue since 2012 according to the StackOverflow post I can find...
+    git clone -b "$RTEMS_BRANCH" git@github.com:slaclab/rtems.git $RTEMS
 fi
 
 if [ ! -d $SSRLAPPS ] || [ $FORCE -gt 0 ]; then
