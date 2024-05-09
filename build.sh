@@ -16,6 +16,8 @@ PPC_BSPS='beatnik mvme3100'
 M68K_BSPS='uC5282'
 ARCHES='m68k powerpc i386'
 
+ONLYTC=0
+
 ONLY="autoconf automake binutils gcc gdb gmp ldep mpc mpfr texinfo rtems ssrlApps"
 JOBS=-j$(nproc)
 while test $# -gt 0; do
@@ -44,8 +46,14 @@ while test $# -gt 0; do
         ARCHES=$2
         shift 2
         ;;
+	--type)
+		if [[ "$2" = "toolchain" ]]; then
+			ONLYTC=1
+		fi
+		shift 2
+		;;
     *)
-        error "Unknown arg"
+        error "Unknown arg '$1'"
         ;;
     esac
 done
@@ -258,7 +266,7 @@ if [[ "$ONLY" =~ 'gdb' ]]; then
     popd > /dev/null
 fi
 
-if [[ "$ONLY" =~ 'rtems' ]]; then
+if [[ "$ONLY" =~ 'rtems' ]] && [ $ONLYTC -ne 1 ]; then
     echo "Building RTEMS"
     pushd $RTEMS > /dev/null
 
@@ -287,7 +295,7 @@ if [[ "$ONLY" =~ 'rtems' ]]; then
     popd > /dev/null
 fi
 
-if [[ "$ONLY" =~ 'ssrlApps' ]]; then
+if [[ "$ONLY" =~ 'ssrlApps' ]] && [ $ONLYTC -ne 1 ]; then
     echo "Building ssrlApps"
     pushd $SSRLAPPS > /dev/null
 

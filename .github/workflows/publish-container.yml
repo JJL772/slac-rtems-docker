@@ -29,11 +29,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build Container
+      - name: Build Toolchain Container
         uses: docker/build-push-action@v5
         with:
           push: true
           file: ./Dockerfile
+          tags: ghcr.io/jjl772/slac-rtems-toolchain:${{ matrix.version }}
+          context: .
+          build-args: |
+            RTEMS_VER=${{ matrix.version }}
+      - name: Build Container
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          file: ./Dockerfile.rtems
           tags: ghcr.io/jjl772/slac-rtems:${{ matrix.version }}
           context: .
           build-args: |
