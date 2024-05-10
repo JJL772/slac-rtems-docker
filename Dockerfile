@@ -7,12 +7,10 @@ ARG USER=0
 ARG GROUP=0
 COPY --chown=$USER:$GROUP . /build/
 
-# Using the same location as SDF here.
+# Using the same location as SDF here. Do it all in one step so we can reduce image size
 ARG RTEMS_VER=4.10.2
-RUN mkdir -p /sdf/sw/epics/package/rtems/${RTEMS_VER}
-
-RUN cd /build && ./download.sh
-
-ARG RTEMS_VER=4.10.2
-RUN cd /build && ./build.sh --prefix /sdf/sw/epics/package/rtems/${RTEMS_VER} --arches "powerpc m68k" --type toolchain && rm -rf /build
+RUN mkdir -p /sdf/sw/epics/package/rtems/${RTEMS_VER}; \
+	cd /build && ./download.sh; \
+	./build.sh --prefix /sdf/sw/epics/package/rtems/${RTEMS_VER} --arches "powerpc m68k" --type toolchain; \
+	rm -rf /build
 
