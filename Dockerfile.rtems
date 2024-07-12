@@ -1,5 +1,5 @@
 ARG RTEMS_VER=4.10.2
-FROM slac-rtems-toolchain:${RTEMS_VER}
+FROM ghcr.io/jjl772/slac-rtems-toolchain:${RTEMS_VER}
 
 ARG USER=0
 ARG GROUP=0
