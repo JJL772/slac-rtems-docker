@@ -1,8 +1,21 @@
 # slac-rtems-toolchains
 
-Build scripts for SLAC's RTEMS toolchains. As of right now, only GCC 4.8.5 for RTEMS 4.10.2 is here.
+Containers and build scripts for SLAC's RTEMS 4.10.2 toolchains. RTEMS 4.9.4 is partially supported.
 
-## Required Packages
+## Building Container
+
+This repository provides two different containers: centos7 and rocky9.
+
+The rocky 9 container is a complete build environment for the toolchains and takes quite a while to build.
+Currently there is also a problem with the resulting toolchain that needs to get fixed.
+
+The centos7 container simply adds a tarball at /sdf/sw/epics/package for the RTEMS toolchain.
+
+Both containers configure the path so that e.g. powerpc-rtems-gcc will point to the expected version of GCC.
+
+## Building Locally
+
+### Required Packages
 
 TODO full list.
 
@@ -13,7 +26,7 @@ TODO full list.
 - automake
 - make
 
-## Usage
+### Usage
 
 First download the packages via `download.sh`
 
