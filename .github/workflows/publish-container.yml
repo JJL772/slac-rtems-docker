@@ -34,7 +34,7 @@ jobs:
         with:
           push: true
           file: ./Dockerfile
-          tags: ghcr.io/jjl772/slac-rtems-toolchain:${{ matrix.version }}
+          tags: ghcr.io/jjl772/slac-rtems-toolchains:${{ matrix.version }}
           context: .
           build-args: |
             RTEMS_VER=${{ matrix.version }}

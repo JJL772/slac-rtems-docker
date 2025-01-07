@@ -4,7 +4,7 @@ function do_build {
 	CNAME="slac-rtems"
 	DF="Dockerfile.rtems"
 	if [[ "${2}" = "toolchain" ]]; then
-		CNAME="slac-rtems-toolchain"
+		CNAME="slac-rtems-toolchains"
 		DF="Dockerfile"
 	fi
 	docker build . -f "$DF" -t "${CNAME}:${1}" --build-arg="RTEMS_VER=${1}" --build-arg="USER=$(id -u)" --build-arg="GROUP=$(id -g)" --build-arg="TYPE=${2}"
