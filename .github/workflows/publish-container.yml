@@ -12,17 +12,17 @@ jobs:
       packages: write
     strategy:
       matrix:
-        version: ['4.10.2', '4.9.4']
+        version: ['4.10.2']
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: 'recursive'
-      - name: Add Private Key & Download
-        run: |
-          eval `ssh-agent -s`
-          ssh-add - <<< '${{ secrets.RTEMS_DEPLOY_PRIVATE_KEY }}'
-          ssh-add - <<< '${{ secrets.SVGM_DEPLOY_PRIVATE_KEY }}'
-          ./download.sh
+      #- name: Add Private Key & Download
+      #  run: |
+      #    eval `ssh-agent -s`
+      #    ssh-add - <<< '${{ secrets.RTEMS_DEPLOY_PRIVATE_KEY }}'
+      #    ssh-add - <<< '${{ secrets.SVGM_DEPLOY_PRIVATE_KEY }}'
+      #    ./download.sh
       - name: Login to Registry
         uses: docker/login-action@v3
         with:
@@ -38,12 +38,12 @@ jobs:
           context: .
           build-args: |
             RTEMS_VER=${{ matrix.version }}
-      - name: Build Container
-        uses: docker/build-push-action@v5
-        with:
-          push: true
-          file: ./Dockerfile.rtems
-          tags: ghcr.io/jjl772/slac-rtems:${{ matrix.version }}
-          context: .
-          build-args: |
-            RTEMS_VER=${{ matrix.version }}
+      #- name: Build Container
+      #  uses: docker/build-push-action@v5
+      #  with:
+      #    push: true
+      #    file: ./Dockerfile.rtems
+      #    tags: ghcr.io/jjl772/slac-rtems:${{ matrix.version }}
+      #    context: .
+      #    build-args: |
+      #      RTEMS_VER=${{ matrix.version }}
